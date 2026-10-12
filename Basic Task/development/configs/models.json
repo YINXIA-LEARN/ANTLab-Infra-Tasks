@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "active": "qwen3-0.6b-q8",
+  "_说明": [
+    "模型注册表：切换器根据这个文件知道有哪些模型、怎么启动它们。",
+    "",
+    "file 只写文件名，不写绝对路径 —— 目录由 config.py 的 MODEL_SEARCH_DIRS 搜索解析，",
+    "  这样在别人的机器上只要设 ANTLAB_MODEL_DIR 环境变量就能跑。",
+    "",
+    "⚠️ 关于 -np（重要，实测确认）：",
+    "  显式给 -np 时，-c 变成【所有 slot 共享的总预算】，每槽上下文 = -c ÷ -np。",
+    "  不给 -np 时，-c 就是【每个 slot 的上下文】，4 个 slot 各得完整一份。",
+    "  实测对照：",
+    "      -c 4096          → n_ctx_slot=4096, kv_unified=true   显存 2761 MiB",
+    "      -c 4096 -np 4    → n_ctx_slot=1024, kv_unified=false  显存 2748 MiB  ← 上下文被砍成 1/4",
+    "      -c 16384 -np 4   → n_ctx_slot=4096, kv_unified=false  显存 4096 MiB",
+    "  结论：本阶段不指定 np，用默认的 4 个 slot，让 -c 直接表示每槽上下文。",
+    "",
+    "ctx 的取值依据（实测显存增量，桌面基线 1571 MiB）：",
+    "  0.6B ctx=4096  → +1202 MiB   1.7B ctx=4096 → +2364 MiB",
+    "  0.6B ctx=16384 → +2559 MiB   1.7B ctx=8192 → +2817 MiB",
+    "  桌面程序占用会在 1.6~4.9 GB 之间波动，所以留足余量比追求大上下文重要。",
+    "",
+    "sha256 用于校验模型是否完整（获取方式见 development/README.md）。"
+  ],
+  "models": [
+    {
+      "id": "qwen3-0.6b-q8",
+      "name": "Qwen3-0.6B (Q8_0)",
+      "file": "Qwen3-0.6B-Q8_0.gguf",
+      "params": "0.6B",
+      "quant": "Q8_0",
+      "size_mb": 610,
+      "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "source": "https://modelscope.cn/models/Qwen/Qwen3-0.6B-GGUF",
+      "notes": "最小可用模型，显存开销低，可给大上下文。适合快速验证流程、并发实验与性能基线。",
+      "server_args": {
+        "ngl": 99,
+        "ctx": 32768
+      }
+    },
+    {
+      "id": "qwen3-1.7b-q8",
+      "name": "Qwen3-1.7B (Q8_0)",
+      "file": "Qwen3-1.7B-Q8_0.gguf",
+      "params": "1.7B",
+      "quant": "Q8_0",
+      "size_mb": 1750,
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "source": "https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF",
+      "notes": "参数近 3 倍。实测在代码问题定位上明显强于 0.6B（能识别 ZeroDivisionError，0.6B 完全跑偏）。上下文收在 4096 以控制显存。",
+      "server_args": {
+        "ngl": 99,
+        "ctx": 32768
+      }
+    }
+  ]
+}
