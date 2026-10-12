@@ -33,10 +33,11 @@ from . import bench_store
 from . import chat as chat_mod
 from . import files as files_mod
 from . import model_manager
+from . import models_config
 from . import tokenizer
 from .logutil import log
 
-# 任务注册表在 common/ 下（与控制层平级），run.py 已把 src 目录加进 sys.path
+# 任务注册表在 common/ 下（与控制层平级），run.py 已把 phase1 目录加进 sys.path
 try:
     from common import tasks as tasks_mod
     from common import file_input
@@ -163,8 +164,15 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(500, {"error": "registry_error", "message": err})
                     return
                 st = model_manager.get_state()
+                ai = models_config.active_info()
                 self._send_json(200, {
                     "active": st["active"],
+                    # ⭐ 当前模型从哪来：
+                    #    runtime     用户在界面上选过（记在 .runtime/active-model.json）
+                    #    registry    没人选过，用的注册表里的 default_active
+                    #    first_model 注册表连 default_active 都没写
+                    "active_source": ai.get("active_source"),
+                    "default_active": ai.get("default_active"),
                     "switching": st["switching"],
                     "target": st["target"],
                     "running_file": running_file,

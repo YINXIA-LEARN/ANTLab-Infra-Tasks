@@ -59,7 +59,7 @@ _state = {
 SERVER_BIN_CANDIDATES = [
     os.environ.get("ANTLAB_SERVER_BIN"),
     str(Path.home() / "antlab/src/llama.cpp/build/bin/llama-server"),
-    str(Path(__file__).resolve().parents[2] / "src/llama.cpp/build/bin/llama-server"),
+    str(Path(__file__).resolve().parents[3] / "src/llama.cpp/build/bin/llama-server"),
 ]
 
 # 进程与日志
@@ -277,6 +277,12 @@ def list_models_with_status(compute_sha=False):
         log(f"⚠️ 注册表 active={_state['active']}，但服务实际在跑 {running_file}"
             f"（对应 id={matched}）—— 以实际为准")
         _state["active"] = matched
+        # ⭐ 校正后要写回运行时状态，否则这个修正只活在内存里：
+        #    进程一重启，_state 又退回 .runtime 里的旧值，界面就显示错的模型。
+        #    写的是 .runtime/（不进 git），所以不会污染仓库。
+        ok, werr = models_config.set_active(matched)
+        if not ok:
+            log(f"（运行时状态写回失败，本次修正仅内存生效：{werr}）")
         for m in models:
             m["is_active"] = (m["id"] == matched)
 
