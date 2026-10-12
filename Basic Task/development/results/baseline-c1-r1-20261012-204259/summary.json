@@ -1,0 +1,209 @@
+{
+  "run_id": "baseline-c1-r1-20261012-204259",
+  "label": "baseline-c1-r1",
+  "finished_at": "2026-10-12T20:43:27+0800",
+  "duration_s": 25.5,
+  "cold_start": {
+    "request_id": "204308-c0434ff0",
+    "task_id": "P01",
+    "status": "success",
+    "error_type": null,
+    "error_message": null,
+    "t_submit": 0.0,
+    "t_first": 0.019863973000610713,
+    "t_done": 0.8820564500001637,
+    "ttft_ms": 19.863973000610713,
+    "total_ms": 882.0564500001637,
+    "tpot_excl_first_ms": 5.635244947709497,
+    "tpot_incl_first_ms": 5.598652448049045,
+    "prompt_tokens": 152,
+    "output_tokens": 154,
+    "prompt_ms": 14.756,
+    "predicted_ms": 861.971,
+    "cache_hit_tokens": 68,
+    "output_text": "**主题：关于内部演示版本延期的说明**\n\n尊敬的客户：\n\n您好！\n\n感谢您一直以来对本工作室的支持与信任。我们原定于**周五**交付内部演示版本，但由于接口联调尚未完成，现将演示版本的交付时间调整为**下周二**，以确保联调工作的顺利推进。\n\n此次调整是基于当前项目进度的合理安排，我们已与相关团队进行了充分沟通，并确认了新的交付时间。如果您有任何疑问或需要进一步的信息，请随时与我们联系。\n\n后续我们将继续推进项目，确保所有工作按时完成。如有任何问题，欢迎随时与我们联系。\n\n顺祝商祺！\n\n此致  \n敬礼！\n\n**工作室负责人**  \n[您的姓名]  \n[日期]",
+    "output_chars": 283,
+    "finish_reason": "stop",
+    "n_chunks": 156,
+    "http_status": 200,
+    "saw_done": true,
+    "prompt_tokens_source": "usage",
+    "output_tokens_source": "timings.predicted_n",
+    "prompt_n_computed": 84,
+    "phase": "cold_start"
+  },
+  "warmup": [
+    {
+      "request_id": "204309-96a9704c",
+      "task_id": "P01",
+      "status": "success",
+      "error_type": null,
+      "error_message": null,
+      "t_submit": 0.0,
+      "t_first": 0.014793173000725801,
+      "t_done": 0.894570530999772,
+      "ttft_ms": 14.793173000725801,
+      "total_ms": 894.570530999772,
+      "tpot_excl_first_ms": 5.60367743948437,
+      "tpot_incl_first_ms": 5.568211126576242,
+      "prompt_tokens": 152,
+      "output_tokens": 158,
+      "prompt_ms": 9.365,
+      "predicted_ms": 879.586,
+      "cache_hit_tokens": 151,
+      "output_text": "**主题：关于内部演示版本延期的说明**\n\n尊敬的客户：\n\n您好！\n\n感谢您一直以来对本工作室的支持与信任。我们原定于**周五**交付内部演示版本，但由于接口联调尚未完成，现将演示版本的交付时间调整为**下周二**，以确保联调工作的顺利推进。\n\n此次调整是基于当前项目进度的合理安排，我们已与相关团队进行了充分沟通，并确认了新的交付时间。如果您有任何疑问或需要进一步的信息，请随时与我们联系。\n\n后续我们将继续推进项目，确保所有工作按时完成。如有任何问题，欢迎随时与我们联系。\n\n顺祝商祺！\n\n此致  \n敬礼！\n\n**工作室负责人**  \n[您的姓名]  \n[职位]  \n[联系方式]",
+      "output_chars": 292,
+      "finish_reason": "stop",
+      "n_chunks": 160,
+      "http_status": 200,
+      "saw_done": true,
+      "prompt_tokens_source": "usage",
+      "output_tokens_source": "timings.predicted_n",
+      "prompt_n_computed": 1,
+      "phase": "warmup"
+    }
+  ],
+  "formal": {
+    "1": {
+      "n_requests": 5,
+      "n_success": 5,
+      "n_failed": 0,
+      "n_timeout": 0,
+      "n_cancelled": 0,
+      "n_incomplete": 0,
+      "n_harness_error": 0,
+      "status_breakdown": {
+        "success": 5
+      },
+      "success_rate": 1.0,
+      "success_rate_note": "分母 = 本次运行的请求总数（含失败与中断）；只有拿到 finish_reason 的才算成功；harness_error 表示测试程序自身的 bug，不是模型问题",
+      "ttft_ms": {
+        "n": 5,
+        "mean": 16.76905060012359,
+        "median": 14.915693000148167,
+        "p95": 24.098654600675218,
+        "min": 11.691437000990845,
+        "max": 25.84806900085823
+      },
+      "total_ms": {
+        "n": 5,
+        "mean": 3446.5036991998204,
+        "median": 2680.340361001072,
+        "p95": 5902.236908999112
+      },
+      "tpot_excl_first_ms": {
+        "n": 5,
+        "mean": 6.122737882384578,
+        "median": 6.217636904450486,
+        "p95": 6.395314628523545,
+        "note": "公式：(完成 − 首字) / (输出token − 1)，排除首 token"
+      },
+      "tokens": {
+        "output_total": 2862,
+        "output_mean": 572.4,
+        "prompt_total": 6181,
+        "cache_hit_total": 6074
+      },
+      "throughput": {
+        "window_s": 17.234548509000888,
+        "window_note": "该并发档的实测墙钟时间（从首个 wave 开始到最后一个 wave 结束，含排队与传输）",
+        "output_tokens_per_s": 166.06179143627097,
+        "requests_per_s": 0.2901149396161268,
+        "failed_counted": false,
+        "note": "失败请求不计入 token 吞吐（未产生输出）；分母用墙钟时间，不用逐请求相对时间推算"
+      },
+      "finish_reason": {
+        "stop": 4,
+        "length": 1
+      },
+      "problems_by_task": {},
+      "largest_inputs": [
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D03",
+          "prompt_tokens": 1873
+        },
+        {
+          "task_id": "C01",
+          "prompt_tokens": 1672
+        }
+      ],
+      "concurrency": 1,
+      "wall_time_s": 17.234548509000888,
+      "vram_peak_mib": 3923
+    }
+  },
+  "warmup_note": "冷启动与预热单独记录，不混入正式测试统计（题目要求）",
+  "overall_window_note": "overall 的统计窗口是各并发档墙钟时间之和，不含冷启动与预热",
+  "overall": {
+    "n_requests": 5,
+    "n_success": 5,
+    "n_failed": 0,
+    "n_timeout": 0,
+    "n_cancelled": 0,
+    "n_incomplete": 0,
+    "n_harness_error": 0,
+    "status_breakdown": {
+      "success": 5
+    },
+    "success_rate": 1.0,
+    "success_rate_note": "分母 = 本次运行的请求总数（含失败与中断）；只有拿到 finish_reason 的才算成功；harness_error 表示测试程序自身的 bug，不是模型问题",
+    "ttft_ms": {
+      "n": 5,
+      "mean": 16.76905060012359,
+      "median": 14.915693000148167,
+      "p95": 24.098654600675218,
+      "min": 11.691437000990845,
+      "max": 25.84806900085823
+    },
+    "total_ms": {
+      "n": 5,
+      "mean": 3446.5036991998204,
+      "median": 2680.340361001072,
+      "p95": 5902.236908999112
+    },
+    "tpot_excl_first_ms": {
+      "n": 5,
+      "mean": 6.122737882384578,
+      "median": 6.217636904450486,
+      "p95": 6.395314628523545,
+      "note": "公式：(完成 − 首字) / (输出token − 1)，排除首 token"
+    },
+    "tokens": {
+      "output_total": 2862,
+      "output_mean": 572.4,
+      "prompt_total": 6181,
+      "cache_hit_total": 6074
+    },
+    "throughput": {
+      "window_s": 17.234548509000888,
+      "window_note": "该并发档的实测墙钟时间（从首个 wave 开始到最后一个 wave 结束，含排队与传输）",
+      "output_tokens_per_s": 166.06179143627097,
+      "requests_per_s": 0.2901149396161268,
+      "failed_counted": false,
+      "note": "失败请求不计入 token 吞吐（未产生输出）；分母用墙钟时间，不用逐请求相对时间推算"
+    },
+    "finish_reason": {
+      "stop": 4,
+      "length": 1
+    },
+    "problems_by_task": {},
+    "largest_inputs": [
+      {
+        "task_id": "D01",
+        "prompt_tokens": 2313
+      },
+      {
+        "task_id": "D03",
+        "prompt_tokens": 1873
+      },
+      {
+        "task_id": "C01",
+        "prompt_tokens": 1672
+      }
+    ]
+  }
+}

@@ -776,7 +776,8 @@ def verify_model_matches_config(cfg, model_info, log):
 def main():
     ap = argparse.ArgumentParser(description="可重复运行的性能测试程序")
     ap.add_argument("--config", required=True, help="运行配置 JSON 文件")
-    ap.add_argument("--out", default=None, help="结果根目录（默认 _work/test_runs）")
+    ap.add_argument("--out", default=None,
+                    help="结果根目录（默认 <development>/results）")
     ap.add_argument("--dry-run", action="store_true",
                     help="只组装输入并打印计划，不发请求")
     ap.add_argument("--force", action="store_true",
@@ -801,8 +802,17 @@ def main():
         print("=" * 72)
         sys.exit(3)
 
+    # 默认输出目录：<development>/results
+    #
+    # ⚠️ 目录层级（本文件在 <development>/src/bench/ 下）：
+    #       parents[0]=bench [1]=src [2]=development
+    #    早先写的是 parent.parent（= src/）+"test_runs"，
+    #    迁移到 development/ 布局后会算成 <development>/src/test_runs ——
+    #    那个目录不存在、也没被 .gitignore 覆盖，一旦不带 --out 跑
+    #    就会在 src/ 下建一个野生结果目录，把仓库弄脏且数据找不着。
+    #    注意 write 时用 out_root（结果根），实际每次运行写在 out_root/<run_id>/。
     out_root = Path(args.out) if args.out else \
-        Path(__file__).resolve().parent.parent / "test_runs"
+        Path(__file__).resolve().parents[2] / "results"
     out_root.mkdir(parents=True, exist_ok=True)
 
     # ⭐ 编号：<标签>-<时间戳>，绝不覆盖已有结果
