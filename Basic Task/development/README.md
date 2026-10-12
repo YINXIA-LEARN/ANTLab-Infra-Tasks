@@ -181,6 +181,60 @@ python3 run.py
 
 ---
 
+### ⚠️ KV 容量的口径：`-c` 是**共享池总量**，不是每槽值
+
+这一条最容易写错，报告里报错会被扣分（题目第 84 行专门要求说明"共享池或分槽方式"）。
+
+**事实**：我们不显式给 `-np`，此时 llama.cpp 把 slot 数取默认 **4**，
+并且 **`kv_unified = true`** —— **4 个 slot 共享一个 KV 池**，
+而 `-c` 就是这个**池的总容量**。
+
+```
+-c 32768  →  一个 32768 token 的池，4 个 slot 分着用
+             每槽可用容量是【动态的】≈ 池总量 ÷ 同时在跑的请求数
+             （4 个都在跑时约 8192；只有 1 个请求时可以用满 32768）
+```
+
+**实测依据**（`-v` 日志）：
+
+```
+llama_kv_cache:      CUDA0 KV buffer size =  3584.00 MiB
+3584 MiB ÷ 32768 token = 112 KiB/token   →  只够【一个】32768 的池
+若真是 4 槽各 32768，需要约 14336 MiB —— 8 GB 显存根本装不下
+```
+
+**官方 help 的印证**：
+
+```
+-kvu, --kv-unified   use single unified KV buffer shared across all sequences
+                     (default: enabled if number of slots is auto)
+--kv-unified-per-slot N   ... when set without -c/--ctx-size, the shared KV pool
+                          is sized to n_parallel*N
+```
+
+**⚠️ 一个容易误读的地方**：启动日志会打
+
+```
+load_model: initializing, n_slots = 4, n_ctx_slot = 32768, kv_unified = 'true'
+```
+
+那个 `n_ctx_slot = 32768` **是池的标称值，不是"每槽能拿 32768"**。
+统一池模式下每个 slot 拿不到一整份。所以：
+
+| 口径 | 值 |
+|---|---|
+| **配置总容量** | `-c` = 32768 token |
+| **各 slot 可用容量** | 动态，最少约 8192（4 槽全忙），最多 32768（单请求） |
+| **分配方式** | 共享池（`kv_unified=true`） |
+| **KV 精度** | `f16`（默认，未显式给 `-ctk` / `-ctv`） |
+
+**想改成"每槽固定一份"**：需要显式 `-np N`（此时 `-c` 变成总预算，
+每槽 = `-c ÷ N`，`kv_unified=false`），或用 `--kv-unified-per-slot N`
+（此时不写 `-c` 的话，池会按 `n_parallel × N` 自动定容）。
+**本阶段没用这两种方式** —— 共享池更省显存，对"10 人以内"的场景够用。
+
+---
+
 ### 前端访问方式
 
 浏览器打开 **http://localhost:8000** （或局域网内 `http://<WSL IP>:8000`）。

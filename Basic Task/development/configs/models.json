@@ -1,34 +1,37 @@
 {
   "version": 1,
+  "active": "qwen3-0.6b-q8",
   "_说明": [
     "模型注册表：切换器根据这个文件知道有哪些模型、怎么启动它们。",
     "",
     "file 只写文件名，不写绝对路径 —— 目录由 config.py 的 MODEL_SEARCH_DIRS 搜索解析，",
     "  这样在别人的机器上只要设 ANTLAB_MODEL_DIR 环境变量就能跑。",
     "",
-    "⚠️ 关于 -np（重要，实测确认）：",
-    "  显式给 -np 时，-c 变成【所有 slot 共享的总预算】，每槽上下文 = -c ÷ -np。",
-    "  不给 -np 时，-c 就是【每个 slot 的上下文】，4 个 slot 各得完整一份。",
+    "⚠️ 关于 -np 与 -c（重要，实测确认）：",
+    "  显式给 -np 时：-c 变成【所有 slot 的总预算】，每槽 = -c ÷ -np，kv_unified=false。",
+    "  不给 -np 时：slot 数取默认 4，且 kv_unified=true ——",
+    "      此时 -c 是【4 个 slot 共享的一个 KV 池的总容量】，",
+    "      每槽可用容量是【动态的】，约等于 池总量 ÷ 同时在跑的请求数。",
+    "      ⚠️ 日志里的 n_ctx_slot 会等于 -c，容易被读成「每槽这么多」，",
+    "         但那只是池的标称值；统一池模式下每个 slot 拿不到一整份。",
     "  实测对照：",
-    "      -c 4096          → n_ctx_slot=4096, kv_unified=true   显存 2761 MiB",
-    "      -c 4096 -np 4    → n_ctx_slot=1024, kv_unified=false  显存 2748 MiB  ← 上下文被砍成 1/4",
-    "      -c 16384 -np 4   → n_ctx_slot=4096, kv_unified=false  显存 4096 MiB",
-    "  结论：本阶段不指定 np，用默认的 4 个 slot，让 -c 直接表示每槽上下文。",
+    "      -c 4096           → n_ctx_slot=4096,  kv_unified=true   显存 2761 MiB",
+    "      -c 4096  -np 4    → n_ctx_slot=1024,  kv_unified=false  显存 2748 MiB  ← 上下文被砍成 1/4",
+    "      -c 16384 -np 4    → n_ctx_slot=4096,  kv_unified=false  显存 4096 MiB",
+    "      -c 32768（不给np）→ n_ctx_slot=32768, kv_unified=true",
+    "          CUDA0 KV buffer size = 3584 MiB = 112 KiB/token × 32768",
+    "          —— 只够【一个】32768 的池；若 4 槽各一份需约 14336 MiB，8G 显存装不下",
+    "  结论：本阶段不指定 np，用默认 4 slot 共享一个 -c 大小的池。",
+    "        报告里报 KV 容量时必须写清是「共享池总量」，不能写成「每槽」。",
+    "        官方 help 的印证：--kv-unified 是 single unified KV buffer shared",
+    "        across all sequences；--kv-unified-per-slot 的说明直接写 the shared KV pool。",
     "",
     "ctx 的取值依据（实测显存增量，桌面基线 1571 MiB）：",
     "  0.6B ctx=4096  → +1202 MiB   1.7B ctx=4096 → +2364 MiB",
     "  0.6B ctx=16384 → +2559 MiB   1.7B ctx=8192 → +2817 MiB",
     "  桌面程序占用会在 1.6~4.9 GB 之间波动，所以留足余量比追求大上下文重要。",
     "",
-    "sha256 用于校验模型是否完整（获取方式见 development/README.md）。",
-    "",
-    "── 当前用哪个模型：不在这个文件里 ──────────────────────────────",
-    "default_active 是【默认值】，只有第一次启动（或删掉运行时状态）时才生效。",
-    "运行中切换模型记在  <development>/.runtime/active-model.json ，那个文件",
-    "  不进 git —— 因为\"此刻正在跑哪个\"是运行时状态，不是配置。",
-    "  早先把它写在这个注册表里，结果每切一次模型 git 就脏一次，",
-    "  提交历史里混进一堆\"只是想换个模型试试\"的噪音。",
-    "优先级：.runtime 里的选择 > 这里的 default_active > 列表第一个模型"
+    "sha256 用于校验模型是否完整（获取方式见 development/README.md）。"
   ],
   "models": [
     {
@@ -43,7 +46,7 @@
       "notes": "最小可用模型，显存开销低，可给大上下文。适合快速验证流程、并发实验与性能基线。",
       "server_args": {
         "ngl": 99,
-        "ctx": 32768
+        "ctx": 16384
       }
     },
     {
@@ -58,9 +61,8 @@
       "notes": "参数近 3 倍。实测在代码问题定位上明显强于 0.6B（能识别 ZeroDivisionError，0.6B 完全跑偏）。上下文收在 4096 以控制显存。",
       "server_args": {
         "ngl": 99,
-        "ctx": 32768
+        "ctx": 4096
       }
     }
-  ],
-  "default_active": "qwen3-0.6b-q8"
+  ]
 }

@@ -97,7 +97,9 @@ def probe_capacity(hard_max=8000):
     """
     st = server_stats()
     n_ctx = st.get("n_ctx")
-    print(f"服务信息：{st.get('model')} | 每槽 ctx={n_ctx} | slots={st.get('slots')}")
+    print(f"服务信息：{st.get('model')} | slots={st.get('slots')}")
+    print(f"  KV 池总容量 = {n_ctx} token"
+          f"（⚠️ kv_unified 下这是共享池总量，不是每槽可用容量）")
     print()
 
     # ── 阶段 1：倍增找上界 ──
@@ -177,11 +179,27 @@ def main():
     print(f"  ✅ 实测可接受的最大输入：约 {best} token")
     if fail_at:
         print(f"  ❌ 失败区间起点：约 {fail_at} 字")
-    print(f"  每槽上下文上限（配置值）：{st.get('n_ctx')} token")
-    print(f"  可用 slot 数：{st.get('slots')}")
-    if st.get("n_ctx"):
-        total = st["n_ctx"] * (st.get("slots") or 1)
-        print(f"  总 KV 容量（n_ctx × slots）：{total} token")
+    print()
+    # ⚠️ 这里原来写的是「总 KV 容量 = n_ctx × slots」，那是【错的】。
+    #    在 kv_unified=true（slot 数为 auto 时的默认）下，
+    #    -c / n_ctx 本身就是【所有 slot 共享的那个池的总容量】，
+    #    再乘 slot 数会虚报 4 倍。
+    #    实测依据：-c 32768 时 CUDA0 KV buffer size = 3584 MiB，
+    #    而 3584 MiB ÷ 32768 = 112 KiB/token —— 只够一个 32768 的池。
+    #    若真是 4 槽各 32768，需要约 14336 MiB，8 GB 显存装不下。
+    n_ctx = st.get("n_ctx")
+    slots = st.get("slots") or 1
+    print(f"  KV 池总容量（= -c，配置值）：{n_ctx} token")
+    print(f"  可用 slot 数：{slots}（共享上面这一个池）")
+    if n_ctx:
+        print(f"  每槽可用容量：动态值，约 {n_ctx // slots} token"
+              f"（= 池总量 ÷ 同时在跑的请求数）")
+        print()
+        print("  ⚠️ 报容量时必须区分三个口径（题目第 84 行要求）：")
+        print(f"       配置总容量    : {n_ctx} token")
+        print(f"       各 slot 可用   : 动态，最少约 {n_ctx // slots}"
+              f"（4 槽全忙），最多 {n_ctx}（只有 1 个请求）")
+        print(f"       分配方式       : 共享池（kv_unified=true）")
     print()
     print(f"  显存（探测后）：{v1} MiB   变化：{(v1 - v0) if (v0 and v1) else '?'} MiB")
     print()

@@ -210,10 +210,27 @@ model_start() {
   echo $! > "$MODEL_PIDFILE"
 
   if wait_model_ready 60; then
-    local slot
-    slot=$(curl -sS -m 3 "http://$MODEL_HOST:$MODEL_PORT/props" 2>/dev/null \
-      | python3 -c "import sys,json;d=json.load(sys.stdin);print((d.get('default_generation_settings') or {}).get('n_ctx'))" 2>/dev/null)
-    c_ok "  ✅ 模型服务就绪（PID $(cat "$MODEL_PIDFILE")，每槽 ctx=$slot）"
+    # ⚠️ 不说"每槽 ctx" —— kv_unified 下 -c 是【共享池总容量】，
+    #    每槽可用是动态的（约等于 池总量 ÷ 同时在跑的请求数）。
+    #    详见 do_status() 里的实测依据。
+    #
+    # 用两行输出 + read 读取，不用 eval：
+    #   eval 会把 curl 返回的内容当代码执行，属于命令注入风险。
+    local pool slots
+    { read -r pool; read -r slots; } < <(
+      curl -sS -m 3 "http://$MODEL_HOST:$MODEL_PORT/props" 2>/dev/null \
+      | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    dgs=d.get('default_generation_settings') or {}
+    print(dgs.get('n_ctx'))
+    print(d.get('total_slots'))
+except Exception:
+    print('?'); print('?')
+" 2>/dev/null
+    )
+    c_ok "  ✅ 模型服务就绪（PID $(cat "$MODEL_PIDFILE")，KV 池 ${pool:-?} token ÷ ${slots:-?} slot 共享）"
     return 0
   fi
   c_err "  ❌ 模型服务 60 秒内未就绪，日志尾部："
@@ -318,14 +335,31 @@ do_status() {
   echo ""
 
   if port_listening "$MODEL_PORT"; then
+    # ⚠️ 这里曾经打印"每槽 ctx=..."，是【错的】。
+    #    在 kv_unified=true（slot 数为 auto 时的默认）下，-c 表示
+    #    【所有 slot 共享的一个 KV 池的总容量】，不是每槽各得这么多。
+    #    实测依据（-v 日志）：
+    #        -c 32768 → CUDA0 KV buffer size = 3584.00 MiB
+    #        3584 MiB ÷ 32768 = 112 KiB/token —— 只够【一个】32768 的池。
+    #        若真是 4 槽各 32768，需要约 14336 MiB，8 GB 显存装不下。
+    #    官方 help 也印证：--kv-unified "single unified KV buffer shared
+    #    across all sequences"，--kv-unified-per-slot 的说明里直接写
+    #    "the shared KV pool"。
+    #    所以每槽可用容量是【动态的】：约等于 池总量 ÷ 同时在跑的请求数。
     curl -sS -m 3 "http://$MODEL_HOST:$MODEL_PORT/props" 2>/dev/null | python3 -c "
 import sys,json
 try:
     d=json.load(sys.stdin)
     dgs=d.get('default_generation_settings') or {}
-    print('    实际模型  %s | %s | 每槽 ctx=%s | slots=%s' % (
-        (d.get('model_path') or '').rsplit('/',1)[-1],
-        d.get('model_ftype'), dgs.get('n_ctx'), d.get('total_slots')))
+    n_ctx = dgs.get('n_ctx')
+    slots = d.get('total_slots')
+    print('    实际模型  %s | %s' % (
+        (d.get('model_path') or '').rsplit('/',1)[-1], d.get('model_ftype')))
+    print('    KV 池     %s token（%s 个 slot 共享，kv_unified）'
+          % (n_ctx, slots))
+    if isinstance(n_ctx, int) and isinstance(slots, int) and slots > 0:
+        print('    每槽可用  约 %d token —— 动态值，约等于 池总量 ÷ 同时在跑的请求数'
+              % (n_ctx // slots))
 except Exception:
     print('    （读取失败）')
 " 2>/dev/null

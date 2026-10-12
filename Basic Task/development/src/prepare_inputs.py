@@ -48,7 +48,8 @@ def main():
     ap.add_argument("--model", default="Qwen3-0.6B-Q8_0.gguf",
                     help="用于 token 计数的模型文件（默认 0.6B，词表与 1.7B 相同）")
     ap.add_argument("--ctx", type=int, default=16384,
-                    help="当前服务的每槽上下文（默认 16384）")
+                    help="KV 池总容量，即 -c（默认 16384）。"
+                         "⚠️ kv_unified 下这是所有 slot 共享的池，不是每槽值")
     ap.add_argument("--max-output", type=int, default=2048,
                     help="为输出预留的 token 数（默认 2048）")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
@@ -68,7 +69,7 @@ def main():
 
     print(f"输入文档目录：{args.input_dir}")
     print(f"计数用模型　：{args.model}")
-    print(f"每槽上下文　：{args.ctx}    输出预留：{args.max_output}")
+    print(f"KV 池总容量　：{args.ctx}（共享池，非每槽）    输出预留：{args.max_output}")
     print(f"服务端探测　：{'关闭' if args.no_probe else args.base_url}")
     print()
 

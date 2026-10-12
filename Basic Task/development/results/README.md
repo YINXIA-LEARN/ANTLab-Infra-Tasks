@@ -103,6 +103,47 @@ load_model: prompt cache is disabled - use `--cache-ram N` to enable it   ← �
 
 ---
 
+## ⚠️ KV 容量的口径：三个数不能混
+
+题目第 84 行要求「记录**配置总容量、各 slot 可用容量和实测可用容量**；
+说明**共享池或分槽方式**、KV 精度、并发数及验证边界」。
+这三个数是不同的东西，报告里混用会被扣分。
+
+**现状**：不显式给 `-np`，slot 数取默认 4，且 **`kv_unified = true`**
+—— 4 个 slot **共享一个 KV 池**，`-c` 就是这个池的总容量。
+
+| 口径 | 当前值 | 怎么得到 |
+|---|---|---|
+| **配置总容量** | `-c` = 32768 token | 启动参数 |
+| **各 slot 可用容量** | **动态**：最少约 8192（4 槽全忙）<br>最多 32768（只有 1 个请求） | 池总量 ÷ 同时在跑的请求数 |
+| **实测可用容量** | 待测（用 `src/kv_capacity.py`） | 逐步加大输入直到失败 |
+| **分配方式** | **共享池**（不是分槽） | 日志 `kv_unified = true` |
+| **KV 精度** | `f16`（默认，未给 `-ctk` / `-ctv`） | 进程命令行 |
+| **KV 位置** | `CUDA0`（全部层） | 日志 `llama_kv_cache: layer N: dev = CUDA0` |
+| **KV 实占显存** | 3584 MiB @ ctx 32768 | 日志 `CUDA0 KV buffer size` |
+
+**实测依据**（为什么确定是"共享池"而不是"每槽一份"）：
+
+```
+CUDA0 KV buffer size = 3584.00 MiB
+3584 MiB ÷ 32768 token = 112 KiB/token  →  只够一个 32768 的池
+若 4 槽各一份需约 14336 MiB，而显卡总共只有 8151 MiB —— 不可能
+```
+
+**⚠️ 容易误读的一行日志**：
+
+```
+load_model: initializing, n_slots = 4, n_ctx_slot = 32768, kv_unified = 'true'
+```
+
+`n_ctx_slot = 32768` 是**池的标称值**，不是"每槽能拿 32768"。
+`src/serve.sh status` 也曾经打印成"每槽 ctx=32768"（**已修正**）。
+
+**想改成"每槽固定一份"**：显式 `-np N`（`-c` 变总预算，每槽 = `-c ÷ N`，
+`kv_unified=false`），或用 `--kv-unified-per-slot N`。**本阶段没用**。
+
+---
+
 ## 字段说明
 
 ### 逐请求记录（`requests.jsonl`）
