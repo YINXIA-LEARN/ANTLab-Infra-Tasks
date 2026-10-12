@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ANTLab 推理控制台</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ══ 顶栏：模型切换器（预留） ══════════════════════════════════════ -->
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <strong>ANTLab 推理控制台</strong>
+    <span class="ver" id="svc-version"></span>
+  </div>
+
+  <div class="model-picker">
+    <label for="model-select">模型</label>
+    <select id="model-select" disabled title="阶段 2 实现">
+      <option>加载中…</option>
+    </select>
+    <span class="badge-todo">未实现</span>
+    <button class="icon-btn" id="btn-refresh" title="刷新状态">⟳</button>
+  </div>
+</header>
+
+<!-- ══ 状态栏：真实数据 ═════════════════════════════════════════════ -->
+<section class="statusbar" id="statusbar">
+  <span class="st-item"><i class="led led-gray" id="led-server"></i> 模型服务 <b id="st-health">检测中…</b></span>
+  <span class="st-sep">·</span>
+  <span class="st-item">模型 <b id="st-model">—</b></span>
+  <span class="st-sep">·</span>
+  <span class="st-item">量化 <b id="st-quant">—</b></span>
+  <span class="st-sep">·</span>
+  <span class="st-item">上下文 <b id="st-ctx">—</b></span>
+  <span class="st-sep">·</span>
+  <span class="st-item">slot <b id="st-slots">—</b></span>
+  <span class="st-sep">·</span>
+  <span class="st-item">显存 <b id="st-vram">—</b></span>
+  <span class="st-right" id="st-time"></span>
+</section>
+
+<!-- ══ 错误条：状态采集的非致命问题 ═════════════════════════════════ -->
+<div class="notice notice-warn" id="status-errors" hidden></div>
+
+<!-- ══ 主区 ═════════════════════════════════════════════════════════ -->
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="chat">对话</button>
+  <button class="tab" data-tab="bench">测试 <span class="badge-todo">未实现</span></button>
+  <button class="tab" data-tab="results">结果</button>
+  <button class="tab" data-tab="service">服务 <span class="badge-todo">未实现</span></button>
+</nav>
+
+<main>
+  <!-- ── 对话页（本阶段唯一可用） ───────────────────────────────── -->
+  <section class="panel active" id="panel-chat">
+    <div class="chat-layout">
+
+      <!-- 左侧 -->
+      <aside class="sidebar">
+        <div class="side-block">
+          <h4>输入文件</h4>
+          <button class="btn btn-ghost full" id="btn-pick-file">📎 选择文件</button>
+          <div id="attached-file" class="attached" hidden>
+            <div class="attached-name" id="attached-name"></div>
+            <div class="attached-meta" id="attached-meta"></div>
+            <button class="btn btn-tiny" id="btn-detach">移除</button>
+          </div>
+          <p class="hint">题包自带 3 个输入文档；也可上传自己的资料</p>
+        </div>
+
+        <div class="side-block">
+          <h4>Token 预算</h4>
+          <div class="budget-box">
+            <div class="budget-row"><span>系统消息</span><b id="budget-sys">—</b></div>
+            <div class="budget-row"><span>资料区</span><b id="budget-doc">—</b></div>
+            <div class="budget-row"><span>任务区</span><b id="budget-task">—</b></div>
+            <div class="budget-row"><span>模板开销</span><b id="budget-tpl">—</b></div>
+            <div class="budget-row total"><span>输入合计</span><b id="budget-in">—</b></div>
+            <div class="budget-row"><span>输出预留</span><b id="budget-out">—</b></div>
+            <div class="budget-row"><span>题目上限</span><b>50,000</b></div>
+            <div class="budget-bar"><i id="budget-bar" style="width:0%"></i></div>
+            <div class="budget-row"><span>上下文余量</span><b id="budget-head">—</b></div>
+          </div>
+          <p class="hint" id="budget-note">选中任务或文件后自动核算</p>
+        </div>
+
+        <div class="side-block">
+          <h4>任务模板</h4>
+          <select id="task-template">
+            <option value="">（不使用规定任务）</option>
+          </select>
+          <button class="btn btn-ghost full" id="btn-apply-task" disabled>
+            ⤵ 载入任务与输入
+          </button>
+          <p class="hint">P01–P04 纯提示词 / D01–D04 办公文档 / C01–C02 源码</p>
+        </div>
+
+        <div class="side-block">
+          <h4>生成参数</h4>
+          <label class="field">
+            <span>max_tokens</span>
+            <input type="number" id="gen-max-tokens" value="2048" min="1" max="8192">
+          </label>
+          <label class="field">
+            <span>temperature</span>
+            <input type="number" id="gen-temperature" value="0.7" min="0" max="2" step="0.1">
+          </label>
+        </div>
+      </aside>
+
+      <!-- 右侧：对话主区 -->
+      <div class="chat-main">
+        <div class="sys-prompt">
+          <label for="sys-prompt-input">系统提示词</label>
+          <textarea id="sys-prompt-input" rows="2">你是一个乐于助人的中文助手，回答简洁准确。</textarea>
+        </div>
+
+        <div class="messages" id="messages">
+          <div class="empty-state" id="chat-empty">
+            <p>还没有对话。</p>
+            <p class="hint">在下方输入问题开始。本阶段仅支持纯文本对话。</p>
+          </div>
+        </div>
+
+        <div class="composer">
+          <textarea id="chat-input" rows="3"
+                    placeholder="输入问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <div class="composer-actions">
+            <button class="btn btn-ghost" id="btn-stop" disabled>■ 停止</button>
+            <button class="btn btn-ghost" id="btn-clear">清空对话</button>
+            <button class="btn btn-primary" id="btn-send">发送</button>
+          </div>
+        </div>
+
+        <div class="metrics" id="metrics" hidden></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── 测试页（预留） ─────────────────────────────────────────── -->
+  <section class="panel" id="panel-bench">
+    <div class="placeholder">
+      <h3>性能测试</h3>
+      <p>本页为后续阶段预留的界面位置。计划实现：</p>
+      <ul>
+        <li>提示词多选（P01–P04 / D01–D04 / C01–C02）</li>
+        <li>并发数设置（1 – 10）与重复次数（≥3）</li>
+        <li>运行配置选择（基线 / 优化后）</li>
+        <li>启动测试 + 实时进度（已完成 N/M）</li>
+        <li>逐请求状态表：等待 / 运行中 / 成功 / 失败 / 超时 / 取消</li>
+        <li>取消按钮</li>
+      </ul>
+      <p class="hint">对应题目模块 2（性能测试）与模块 3（前端展示的测试配置部分）。</p>
+      <button class="btn btn-ghost" data-todo="性能测试：阶段 3 实现">查看计划</button>
+    </div>
+  </section>
+
+  <!-- ── 结果页 ─────────────────────────────────────────────────── -->
+  <section class="panel" id="panel-results">
+    <div class="results-layout">
+
+      <!-- 左：运行列表 -->
+      <aside class="runs-side">
+        <div class="runs-head">
+          <h4>测试运行</h4>
+          <button class="btn btn-tiny" id="btn-refresh-runs"
+                  title="重新扫描 results/ 目录（跑完测试后点这里）">⟳ 刷新</button>
+        </div>
+
+        <div class="runs-filter">
+          <label class="field">
+            <span>标签</span>
+            <select id="run-filter-label"><option value="">全部</option></select>
+          </label>
+          <label class="field">
+            <span>并发</span>
+            <select id="run-filter-conc"><option value="">全部</option></select>
+          </label>
+          <label class="field">
+            <span>状态</span>
+            <select id="run-filter-status">
+              <option value="">全部</option>
+              <option value="ok">仅完整</option>
+              <option value="incomplete">仅不完整</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="runs-meta" id="runs-meta">加载中…</div>
+        <div class="runs-list" id="runs-list"></div>
+
+        <div class="runs-compare-bar" id="runs-compare-bar">
+          <div id="compare-picked">已选 0 / 2</div>
+          <div class="compare-btns">
+            <button class="btn btn-tiny" id="btn-do-compare" disabled>对比</button>
+            <button class="btn btn-tiny" id="btn-clear-pick">清空</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右：详情 / 对比 -->
+      <div class="results-main">
+        <div class="results-tabs" id="results-tabs">
+          <button class="tab2 active" data-rtab="summary">汇总</button>
+          <button class="tab2" data-rtab="requests">逐请求</button>
+          <button class="tab2" data-rtab="errors">错误</button>
+          <button class="tab2" data-rtab="config">配置</button>
+          <button class="tab2" data-rtab="compare">对比</button>
+        </div>
+
+        <div class="results-body" id="results-body">
+          <div class="empty-state">
+            <p>从左侧选择一个运行查看详情。</p>
+            <p class="hint">勾选两个运行可以并排对比 —— 控制变量一致时，改动效果才看得出来。</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── 服务页（预留） ─────────────────────────────────────────── -->
+  <section class="panel" id="panel-service">
+    <div class="placeholder">
+      <h3>服务管理</h3>
+      <p>本页为后续阶段预留的界面位置。计划实现：</p>
+      <ul>
+        <li>服务状态详情（模型、上下文、slot 逐个状态）</li>
+        <li>显存占用实时曲线</li>
+        <li>服务日志查看</li>
+        <li><b>服务重启与恢复测试</b>：触发退出 → 检测 → 重启 → 就绪确认</li>
+        <li>恢复时间线：异常时间 / 恢复时间 / 受影响请求 / 最终状态</li>
+        <li>中断与重试请求的状态与计数</li>
+      </ul>
+      <p class="hint">对应题目模块 4（报错记录与服务恢复）。</p>
+      <button class="btn btn-ghost" data-todo="服务管理：阶段 3 实现">查看计划</button>
+    </div>
+  </section>
+</main>
+
+<!-- ── 文件选择弹窗 ─────────────────────────────────────────────── -->
+<div class="modal-mask" id="file-modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>选择输入文件</h3>
+      <button class="btn btn-tiny" id="btn-close-file-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" id="file-modal-hint">加载中…</p>
+      <div class="file-list" id="file-list"></div>
+    </div>
+    <div class="modal-foot">
+      <span class="hint">token 数由 llama-tokenize 精确统计（首次约 2 秒，之后走缓存）</span>
+      <button class="btn btn-ghost" id="btn-close-file-modal2">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
