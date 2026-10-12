@@ -150,6 +150,81 @@ model_status() {
   fi
 }
 
+# ── 可选：本次启动的参数覆盖（给交互式测试脚本用）────────────────────────
+#
+# 用法：ANTLAB_OVERRIDE='{"file":"Qwen3-1.7B-Q8_0.gguf","ctx":16384,
+#                        "ctk":"q8_0","ctv":"q8_0"}' bash serve.sh model
+#
+# ⭐ 为什么用"覆盖"而不是"另写一份启动逻辑"：
+#     注册表 configs/models.json 是【默认值的唯一来源】，
+#     而交互式测试需要临时改某几个参数。
+#     如果让测试脚本自己拼 llama-server 命令行，就会出现【两处配置】，
+#     迟早打架（我们已经被 serve.sh 硬编码 ctx 和注册表不一致坑过一次）。
+#     所以仍然只有 model_start() 一处负责启动，
+#     它先读注册表拿默认值，再用这个变量覆盖掉指名的那几项。
+#
+# 覆盖项（都可选，没给的用注册表默认值）：
+#     file   模型文件名（必须在注册表能找到，不接受任意路径）
+#     ctx    上下文，即 -c（KV 池总容量）
+#     ngl    GPU 层数，默认沿用注册表
+#     ctk    K 的 KV 精度，如 f16 / q8_0（不给就用 llama 默认 f16）
+#     ctv    V 的 KV 精度
+read_override() {
+  # 把 ANTLAB_OVERRIDE 里指名的那几项解析出来，一行一项：
+  #     FILE / NGL / CTX / CTK / CTV   —— 空行表示"沿用注册表"
+  # 传入 $1 = 注册表路径（用于按文件名搜索模型，复用同一套搜索目录）
+  #
+  # ⚠️ 解析失败时【全部输出空】而不是报错退出 ——
+  #    调用方会退回注册表默认值，启动行为不变（安全降级）。
+  [ -z "${ANTLAB_OVERRIDE:-}" ] && return 0
+  python3 - "$DIR/../configs/models.json" "$ANTLAB_OVERRIDE" <<'PY' 2>/dev/null || true
+import json, os, sys
+from pathlib import Path
+
+reg_path, raw = sys.argv[1], sys.argv[2]
+try:
+    ov = json.loads(raw)
+except Exception:
+    sys.exit(0)                      # 解析失败 → 什么都不输出
+if not isinstance(ov, dict):
+    sys.exit(0)
+
+# 模型文件：只在注册表声明过的候选里找（不接受任意路径）
+fname = ov.get("file") or ""
+if fname:
+    try:
+        reg = json.loads(Path(reg_path).read_text(encoding="utf-8"))
+        known = {m.get("file") for m in (reg.get("models") or [])}
+    except Exception:
+        known = set()
+    if fname not in known:
+        print("ERR 模型文件不在注册表里：%s" % fname, file=sys.stderr)
+        sys.exit(0)
+    cands = [
+        os.environ.get("ANTLAB_MODEL_DIR"),
+        str(Path.home() / "antlab" / "models"),
+        str(Path(reg_path).resolve().parent.parent / "models"),
+        str(Path.cwd() / "models"),
+        "/models",
+    ]
+    found = ""
+    for c in cands:
+        if c and (Path(c) / fname).is_file():
+            found = str(Path(c) / fname)
+            break
+    print(found)
+else:
+    print("")
+
+for key in ("ngl", "ctx"):
+    v = ov.get(key)
+    print("" if v is None else v)
+for key in ("ctk", "ctv"):
+    v = ov.get(key)
+    print("" if not v else v)
+PY
+}
+
 model_start() {
   if port_listening "$MODEL_PORT"; then
     c_dim "  模型服务已在运行，跳过"
@@ -171,6 +246,31 @@ model_start() {
   NGL=$(echo "$reg"  | sed -n '2p')
   CTX=$(echo "$reg"  | sed -n '3p')
   MPATH=$(echo "$reg" | sed -n '4p')
+
+  # ── 应用本次的参数覆盖（如果给了 ANTLAB_OVERRIDE）────────────────────
+  # 只覆盖指名的那几项，其余沿用注册表 —— 保持"注册表是默认值来源"。
+  local OV OV_FILE OV_NGL OV_CTX CTK="" CTV=""
+  OV=$(read_override)
+  if [ -n "$OV" ]; then
+    OV_FILE=$(echo "$OV" | sed -n '1p')
+    OV_NGL=$(echo "$OV"  | sed -n '2p')
+    OV_CTX=$(echo "$OV"  | sed -n '3p')
+    CTK=$(echo "$OV"     | sed -n '4p')
+    CTV=$(echo "$OV"     | sed -n '5p')
+
+    if [ -n "$OV_FILE" ]; then
+      FILE=$(basename "$OV_FILE")
+      MPATH="$OV_FILE"
+    fi
+    [ -n "$OV_NGL" ] && NGL="$OV_NGL"
+    [ -n "$OV_CTX" ] && CTX="$OV_CTX"
+    c_warn "  ⚠️ 本次启动使用参数覆盖（来自 ANTLAB_OVERRIDE）"
+    [ -n "$OV_FILE" ] && c_dim "      模型  : $FILE"
+    [ -n "$OV_NGL" ]  && c_dim "      ngl   : $OV_NGL"
+    [ -n "$OV_CTX" ]  && c_dim "      ctx   : $OV_CTX"
+    [ -n "$CTK" ]     && c_dim "      ctk   : $CTK"
+    [ -n "$CTV" ]     && c_dim "      ctv   : $CTV"
+  fi
 
   if [ -z "$MPATH" ]; then
     c_err "  ❌ 找不到模型文件：$FILE"
@@ -202,8 +302,17 @@ model_start() {
   #       ⚠️ 只关主机搬运，不影响：
   #          · KV 本身仍在显存（CUDA0 KV buffer size 不变）
   #          · 计算层的前缀复用（--cache-prompt 仍为 enabled）
+  #
+  # KV 精度（-ctk / -ctv）：只在 ANTLAB_OVERRIDE 里给了才加这两个参数。
+  # 不给时用 llama.cpp 自己的默认值 f16 —— 显式写出来和不写效果一样，
+  # 但"没给"和"给了 f16"在事后判断口径时是两回事，所以这里不硬塞默认值。
+  local KV_ARGS=()
+  [ -n "$CTK" ] && KV_ARGS+=("-ctk" "$CTK")
+  [ -n "$CTV" ] && KV_ARGS+=("-ctv" "$CTV")
+
   nohup "$MODEL_BIN" -m "$MPATH" \
       -ngl "$NGL" -c "$CTX" \
+      "${KV_ARGS[@]+"${KV_ARGS[@]}"}" \
       -v --cache-ram 0 \
       --host "$MODEL_HOST" --port "$MODEL_PORT" \
       >> "$MODEL_LOG" 2>&1 &

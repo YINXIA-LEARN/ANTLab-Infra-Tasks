@@ -51,6 +51,7 @@ import sys
 import threading
 import time
 import traceback
+import urllib.request                             # noqa: F401
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -116,7 +117,9 @@ def collect_hardware():
 def collect_model_info(base_url):
     """模型信息（题意①）"""
     try:
-        import urllib.request
+        # urllib.request 已在文件顶部 import —— 早先这里写的是局部 import，
+        # 结果新加的 current_service_state() 在另一个函数里用同名模块就
+        # NameError 了。局部 import 只对它所在的函数可见，别在这里写。
         with urllib.request.urlopen(base_url.rstrip("/") + "/props", timeout=10) as r:
             d = json.loads(r.read())
         dgs = d.get("default_generation_settings") or {}
@@ -485,30 +488,352 @@ def verify_note_scope(cfg):
     return True, note
 
 
-def load_config(path):
-    d = json.loads(Path(path).read_text(encoding="utf-8"))
+def load_config_from_defaults():
+    """
+    不给 --config 时的内置默认值（交互模式用）。
+
+    ⚠️ 值必须和 bench/configs/baseline-full.json 保持一致 ——
+       否则"交互模式"和"配置模式"跑出来的负载不是一回事，没法对比。
+       所以这里不另发明一套默认值。
+    """
+    return load_config_dict({
+        "label": "run",
+        "task_ids": tasks.all_ids(),
+        "rounds": 3,
+        "concurrency": [1, 4, 10],
+        "seed": 20261009,
+        "order": "shuffled",
+        "max_tokens": 2048,
+        "temperature": 0.0,
+        "timeout_s": 900,
+        "warmup": {"enabled": True, "n": 2, "task_id": "P01"},
+    })
+
+
+def load_config_dict(d):
+    """把 load_config 的那套默认值补齐逻辑抽出来，供 dict 入口复用"""
+    d = dict(d)
     d.setdefault("base_url", "http://127.0.0.1:8080")
     d.setdefault("input_dir", str(
         Path.home() / "antlab/ANTLab-Infra-Tasks/Basic Task/"
                       "提示词与输入文档/输入文档"))
     d.setdefault("model_file", "Qwen3-0.6B-Q8_0.gguf")
     d.setdefault("task_ids", tasks.all_ids())
-    d.setdefault("concurrency", [1, 4])
+    d.setdefault("concurrency", [1, 4, 10])
     d.setdefault("rounds", 3)
     d.setdefault("max_tokens", 2048)
     d.setdefault("temperature", 0.0)
     d.setdefault("seed", 20261009)
     d.setdefault("order", "shuffled")
-    d.setdefault("timeout_s", 600)
+    d.setdefault("timeout_s", 900)
     d.setdefault("warmup", {"enabled": True, "n": 2, "task_id": "P01"})
-    # 兼容旧字段名：以前叫 run_id，现在叫 label（语义是"逻辑标签"）
     if "label" not in d and "run_id" in d:
         d["label"] = d.pop("run_id")
     d.setdefault("label", "run")
     return d
 
 
+def load_config(path):
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    return load_config_dict(d)
+
+
 def prepare_inputs(cfg, log):
+    """
+    预先组装所有任务的 messages 与 token 数。
+    同时产出 prompt-index.json（含文件校验值）。
+
+    ⚠️ 用 prepare_all 而不是循环调 prepare：
+       前者把所有任务的计数集中成少数几次模型加载，
+       10 个任务约 2 秒；后者每个任务加载一次，要 15 秒以上。
+
+    ⚠️ 这个函数曾经被我误删过（编辑时 old_string 用它的 def 行做锚点，
+       替换后函数头没了，只剩调用处）。所以下面的"函数完整性自查"
+       要一直留着 —— 它能提前发现这类"定义消失"的问题。
+    """
+    res = file_input.prepare_all(
+        cfg["task_ids"], cfg["input_dir"], cfg["model_file"],
+        n_ctx=999999, max_output_tokens=cfg["max_tokens"],
+        base_url=cfg["base_url"], want_probe=True)
+
+    index = {}
+    for tid, info in res.items():
+        tk = info["tokens"]
+        # ⚠️ 两个口径都在，别混：
+        #   local_sum   —— 本地用 llama-tokenize 分段数的和（不含聊天模板包装）
+        #   server_prompt_tokens —— 服务端实测的"聊天模板处理后"的输入总数
+        #   题目要求记录的是后者；前者用来解释 token 花在哪一段。
+        index[tid] = {
+            "task_id": tid,
+            "title": info["task_title"],
+            "kind": info["task_kind"],
+            "file": (info["doc"] or {}).get("name"),
+            "file_sha256": (info["doc"] or {}).get("sha256"),
+            "file_bytes": (info["doc"] or {}).get("bytes"),
+            "system_message": info["system_message"],
+            "tokens": {
+                "system": tk["system"],
+                "doc": tk["doc"],
+                "task": tk["task"],
+                "sum_without_template": tk["local_sum"],
+                "template_overhead": (tk["server_prompt_tokens"] - tk["local_sum"])
+                                     if tk["server_prompt_tokens"] else None,
+                "counted_total_input": tk["server_prompt_tokens"],
+                "counted_total_source": ("server usage.prompt_tokens"
+                                         if tk["server_prompt_tokens"] else None),
+            },
+        }
+        srv = tk["server_prompt_tokens"]
+        log(f"  组装 {tid}: 本地分段合计 {tk['local_sum']} token"
+            + (f"，服务端实测输入 {srv}（模板开销 {srv - tk['local_sum']}）"
+               if srv else "，服务端实测失败")
+            + (f"，文件 {index[tid]['file']}" if index[tid]["file"] else ""))
+    return res, index
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  函数完整性自查
+#
+#  ⚠️ 为什么要有这个：
+#     我用编辑工具改代码时，曾把 prepare_inputs 整个函数头吃掉
+#     （old_string 正好是它的 def 行），结果语法照样通过、
+#     --help 照样能跑，直到真正执行到那一行才 NameError。
+#     这个自查把"应该存在的函数"列出来，import 时立刻验证，
+#     把这类问题从"跑到一半才炸"提前到"一启动就报"。
+# ══════════════════════════════════════════════════════════════════════════
+
+_REQUIRED_FUNCS = [
+    # 配置与校验
+    "load_config", "load_config_dict", "load_config_from_defaults",
+    "verify_note_scope", "verify_model_matches_config",
+    # 输入与负载
+    "prepare_inputs", "build_plan",
+    # 服务
+    "read_server_config", "current_service_state",
+    "restart_with_params", "plan_service_change", "find_serve_sh",
+    # 交互
+    "collect_interactive", "answers_to_config",
+    # 执行与汇总
+    "run_one_wave", "summarize",
+    # 落盘
+    "make_run_id", "update_runs_registry", "make_registry_record",
+    # 入口
+    "main",
+]
+
+
+def _self_check():
+    """启动时验证关键函数都在 —— 缺了就立刻报，别等跑到那行才 NameError"""
+    missing = [n for n in _REQUIRED_FUNCS if n not in globals()]
+    if missing:
+        sys.stderr.write(
+            "❌ run_bench.py 自身不完整，缺少函数：\n"
+            + "".join(f"     · {n}\n" for n in missing)
+            + "   （多半是编辑时误删了定义 —— 从 git 历史取回来）\n")
+        raise SystemExit(90)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  交互式配置（--interactive）
+#
+#  设计要点（都是"避免残留"和"保持可追踪"考虑过的）：
+#    ① 只在这里【收集答案】，不在这里启动服务 ——
+#       启动/重启统一由 service_apply() 负责，而且放在【建结果目录之前】，
+#       这样重启失败不会留下任何空目录或半截数据。
+#    ② 收集完的答案走同一条 load_config() 路径（这里手工补默认值），
+#       后面的 note 校验 / 模型校验 / 输入组装 / 落盘全都不用改。
+#    ③ note 自动从答案生成，天然满足"只写本轮参数"的规范。
+#    ④ label 给默认值，可改 —— 因为不同参数的运行要有可区分的编号。
+# ══════════════════════════════════════════════════════════════════════════
+
+# KV 精度档位（llama.cpp 的合法取值，实测确认）
+KV_CHOICES = [
+    ("1", "f16",  "16 位浮点，默认值，精度最高、显存最大"),
+    ("2", "q8_0", "约 8.5 位，显存约省一半，质量损失很小"),
+    ("3", "q5_0", "约 5.5 位"),
+    ("4", "q4_0", "约 4.5 位，显存约省 3/4，质量有可见下降"),
+    ("5", "bf16", "bfloat16，16 位，范围大精度低"),
+]
+# 常见上下文档位（0.6B 的上限是 40960，1.7B 也是）
+CTX_CHOICES = ["4096", "8192", "16384", "32768", "40960"]
+
+
+def _ask(prompt, default=None, validator=None, hint=None):
+    """
+    问一个问题，返回字符串。
+
+    ⚠️ 四个必须处理的边界，否则脚本在非交互环境下会炸、被卡住或输出乱掉：
+       · EOF（管道输入用完 / Ctrl+D）→ 用默认值，别再问
+       · 空输入                       → 用默认值
+       · 校验不过                     → 重问（最多 5 次，防死循环）
+       · **input() 后要自己补一个换行**：
+         交互终端里用户按的回车会回显，但【管道输入不会】——
+         那个 \\n 被当作行结束符吃掉了，不打印。
+         于是用管道跑时会出现 "问题:       ❌ 错误信息" 挤在同一行。
+         补一个 print() 让两种输入方式输出一致。
+    """
+    for attempt in range(5):
+        if hint:
+            print(f"      {hint}")
+        suffix = f" [{default}]" if default not in (None, "") else ""
+        try:
+            raw = input(f"  {prompt}{suffix}: ").strip()
+        except EOFError:
+            print()                                     # 补换行
+            if default not in (None, ""):
+                print(f"      （输入结束，采用默认值 {default}）")
+                return str(default)
+            print("      ❌ 输入结束且没有默认值")
+            raise SystemExit("交互输入中断")
+        print()                                          # 补换行（见上）
+        if not raw and default not in (None, ""):
+            return str(default)
+        if validator:
+            ok, why = validator(raw)
+            if not ok:
+                print(f"      ❌ {why}")
+                continue
+        return raw
+    raise SystemExit("连续 5 次输入无效，已中止")
+
+
+def _ask_choice(prompt, choices, default_key=None):
+    """
+    从固定选项里选一个。choices 是 [(key, value, 说明), ...]
+    返回 value。输入原始值（如 'f16'）也接受。
+    """
+    for k, v, desc in choices:
+        mark = " ←默认" if k == default_key else ""
+        print(f"        {k}) {v:6s} {desc}{mark}")
+    for _ in range(5):
+        raw = _ask(prompt, default=default_key)
+        for k, v, _d in choices:
+            if raw == k or raw.lower() == v.lower():
+                return v
+        print(f"      ❌ 只认上面列出的编号或取值")
+    raise SystemExit("连续 5 次输入无效，已中止")
+
+
+def collect_interactive(cfg_base, log=None):
+    """
+    依次问一遍参数，返回一个 answers dict（不启动服务、不建目录）。
+
+    cfg_base 是配置模板（来自 --config 或内置默认），
+    用它填默认值 —— 这样"回车"就能得到和原来一样的配置。
+    """
+    print()
+    print("=" * 72)
+    print(" 交互式测试配置")
+    print("=" * 72)
+    print(" （直接回车 = 用方括号里的默认值）")
+    print()
+
+    # ── 模型 ─────────────────────────────────────────────────────────
+    reg, err = _read_registry_for_menu()
+    if err:
+        print(f"  ⚠️ 读不到注册表：{err}")
+        print("     将只提供默认模型。")
+        models = [(cfg_base.get("model_file", "Qwen3-0.6B-Q8_0.gguf"), "")]
+    else:
+        models = [(m["file"], f"{m.get('params','?')} / {m.get('quant','?')}")
+                  for m in reg.get("models", [])]
+
+    # ⚠️ 模型清单【不要】在这里打印 ——
+    #    _ask_choice() 内部会按统一格式打印一遍（含"←默认"标记）。
+    #    早先这里也打了一遍，结果列表出现两次。
+    default_idx = next((str(i) for i, (f, _) in enumerate(models)
+                        if f == cfg_base.get("model_file")), "0")
+    model_file = _ask_choice(
+        "你想使用什么模型",
+        [(str(i), f, d) for i, (f, d) in enumerate(models)],
+        default_key=default_idx)
+
+    # ── 上下文 ───────────────────────────────────────────────────────
+    print()
+    print(f"  常见上下文档位：{', '.join(CTX_CHOICES)}")
+    print("        （KV 池总容量，单位 token；4 个 slot 共享这一个池）")
+
+    def _ctx_ok(s):
+        if not s.isdigit():
+            return False, "要输入整数"
+        v = int(s)
+        if v < 512:
+            return False, "太小了（至少 512）"
+        if v > 40960:
+            return False, "超过模型上限 40960（0.6B/1.7B 都是这个上限）"
+        return True, ""
+
+    ctx = int(_ask("上下文为多少", default=cfg_base.get("ctx_default", 16384),
+                   validator=_ctx_ok))
+
+    # ── KV 精度（K/V 合并成一个设置）────────────────────────────────
+    print()
+    print("  可选 KV 精度（K 和 V 用同一档）：")
+    kv = _ask_choice("KV 量化为", KV_CHOICES, default_key="1")
+
+    # 进阶：允许分开设（默认不用）
+    print()
+    sep = _ask("要不要给 K 和 V 分别设精度？(y/N)", default="n")
+    ctk = ctv = kv
+    if sep.lower().startswith("y"):
+        print("  K 的精度（决定「该关注谁」，对输出质量更敏感）：")
+        ctk = _ask_choice("K", KV_CHOICES, default_key="1")
+        print("  V 的精度（参与加权求和，相对不敏感）：")
+        ctv = _ask_choice("V", KV_CHOICES, default_key="1")
+
+    # ── 编号 ─────────────────────────────────────────────────────────
+    print()
+    label = _ask("运行标签（决定结果目录名前缀）",
+                 default=cfg_base.get("label", "run"))
+
+    return {
+        "model_file": model_file,
+        "ctx": ctx,
+        "ctk": ctk,
+        "ctv": ctv,
+        "label": label,
+    }
+
+
+def _read_registry_for_menu():
+    """给交互菜单读注册表（模型清单 + 默认 ctx）。返回 (registry, err)"""
+    dev = Path(__file__).resolve().parents[2]
+    p = dev / "configs" / "models.json"
+    if not p.is_file():
+        return None, f"找不到 {p}"
+    try:
+        return json.loads(p.read_text(encoding="utf-8")), None
+    except Exception as e:                                    # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}"
+
+
+def answers_to_config(answers, base):
+    """
+    把交互答案合成一份完整配置（走和 load_config 一样的默认值补齐）。
+
+    ⚠️ 为什么不让调用方各自补默认值：
+       补默认值的地方一多，就会出现"交互模式漏补了某字段"这类问题。
+       所以统一走这里，并且复用 load_config 的那套 setdefault。
+    """
+    d = dict(base)
+    d.pop("_说明", None)              # 配置里的注释不进快照
+    d.pop("_note_规范", None)
+    d["model_file"] = answers["model_file"]
+    d["label"] = answers["label"]
+    # ctx / KV 精度不属于"请求参数"，但必须记进配置 ——
+    # 否则 run-config.json 里看不出这次用的是哪个上下文和 KV 精度。
+    d["server_ctx"] = answers["ctx"]
+    d["kv_type_k"] = answers["ctk"]
+    d["kv_type_v"] = answers["ctv"]
+    # note 自动生成：只写本轮参数，天然满足规范
+    d["note"] = (
+        f"{Path(answers['model_file']).stem} · ctx {answers['ctx']} · "
+        f"KV {answers['ctk']}/{answers['ctv']} · "
+        f"{len(d.get('task_ids') or [])} 任务 x {d.get('rounds')} 轮 x "
+        f"并发{d.get('concurrency')} · seed {d.get('seed')} · "
+        f"max_tokens {d.get('max_tokens')} · temp {d.get('temperature')}"
+    )
+    return d
     """
     预先组装所有任务的 messages 与 token 数。
     同时产出 prompt-index.json（含文件校验值）。
@@ -773,21 +1098,194 @@ def verify_model_matches_config(cfg, model_info, log):
     return True, f"模型一致：{got}"
 
 
+def find_serve_sh():
+    """定位 serve.sh（本文件在 <development>/src/bench/ 下）"""
+    p = Path(__file__).resolve().parents[1] / "serve.sh"
+    return p if p.is_file() else None
+
+
+def current_service_state(base_url):
+    """
+    问服务当前实际状态：模型 / ctx / KV 精度 / kv_unified。
+    用来判断"要不要重启"，以及事后核对参数真的生效了。
+    """
+    out = {"model_file": None, "ctx": None, "slots": None,
+           "kv_unified": None, "ctk": None, "ctv": None, "cmdline": None,
+           "error": None}
+    try:
+        req = urllib.request.Request(base_url.rstrip("/") + "/props")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        dgs = d.get("default_generation_settings") or {}
+        out["model_file"] = (d.get("model_path") or "").rsplit("/", 1)[-1] or None
+        out["ctx"] = dgs.get("n_ctx")
+        out["slots"] = d.get("total_slots")
+        out["kv_unified"] = dgs.get("kv_unified")
+    except Exception as e:                                    # noqa: BLE001
+        out["error"] = f"{type(e).__name__}: {e}"
+        return out
+
+    # 命令行里的 KV 精度（/props 不给，从进程命令行读）
+    cmd = _run(["bash", "-c",
+                "ps -o args= -p $(pgrep -f llama-server | head -1) 2>/dev/null"])
+    out["cmdline"] = cmd
+    if cmd:
+        toks = cmd.split()
+
+        def _val(*names):
+            for n in names:
+                if n in toks and toks.index(n) + 1 < len(toks):
+                    return toks[toks.index(n) + 1]
+            return None
+        out["ctk"] = _val("-ctk", "--cache-type-k")
+        out["ctv"] = _val("-ctv", "--cache-type-v")
+    return out
+
+
+def restart_with_params(model_file, ctx, ctk, ctv, log):
+    """
+    用指定的模型/上下文/KV 精度重启模型服务，并等就绪。
+
+    返回 (是否成功, 说明)。失败时服务可能处于"没起来"的状态 ——
+    调用方必须【终止整个运行】，不能带着坏服务继续跑。
+
+    ⚠️ 为什么走 serve.sh 而不是自己拼 llama-server 命令行：
+       启动逻辑（停旧进程、PID 文件、就绪判定、-v/--cache-ram 0）
+       已经集中在 serve.sh 的 model_start() 里。测试脚本再拼一份，
+       就会出现【两处启动逻辑】，迟早不一致
+       （我们已经被 serve.sh 硬编码 ctx 和注册表不一致坑过一次）。
+       所以这里只负责"把参数告诉它"，怎么起由它决定。
+    """
+    serve = find_serve_sh()
+    if serve is None:
+        return False, f"找不到 serve.sh（应在 {serve}）"
+
+    override = json.dumps({
+        "file": model_file,
+        "ctx": ctx,
+        "ctk": ctk,
+        "ctv": ctv,
+    }, ensure_ascii=False)
+
+    log(f"  重启模型服务：{model_file} / ctx {ctx} / KV {ctk}-{ctv}")
+    env = dict(os.environ)
+    env["ANTLAB_OVERRIDE"] = override
+
+    try:
+        r = subprocess.run(
+            ["bash", str(serve), "model"],
+            cwd=str(serve.parent), env=env,
+            capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired:
+        return False, "serve.sh model 超过 180 秒未返回"
+    except Exception as e:                                    # noqa: BLE001
+        return False, f"调用 serve.sh 失败：{type(e).__name__}: {e}"
+
+    combined = (r.stdout or "") + (r.stderr or "")
+    if r.returncode != 0 or "就绪" not in combined:
+        tail = "\n".join(combined.strip().splitlines()[-12:])
+        return False, f"服务未就绪（退出码 {r.returncode}）：\n{tail}"
+
+    # serve.sh 说就绪了，但还要独立核对一遍【参数是否真的生效】——
+    # 不能只信它打印了"就绪"三个字。
+    st = current_service_state("http://127.0.0.1:8080")
+    if st["model_file"] != model_file:
+        return False, (f"重启后模型不对：期望 {model_file}，"
+                       f"实际 {st['model_file']}")
+    if st["ctx"] != ctx:
+        return False, f"重启后 ctx 不对：期望 {ctx}，实际 {st['ctx']}"
+    # KV 精度：只有显式给了才可能出现在命令行里；没给就是 llama 默认 f16
+    want_ctk = ctk if ctk != "f16" else None
+    if want_ctk and st["ctk"] != want_ctk:
+        return False, (f"重启后 ctk 不对：期望 {want_ctk}，实际 {st['ctk']}")
+    return True, (f"就绪：{st['model_file']} / ctx {st['ctx']} / "
+                  f"slots {st['slots']} / KV {st['ctk'] or 'f16(默认)'}"
+                  f"-{st['ctv'] or 'f16(默认)'}")
+
+
+def plan_service_change(cfg, answers, log):
+    """
+    算一下"要不要重启服务"，返回 (需要重启吗, 说明)。
+    只比较能通过 /props 观察到的项，避免无谓重启（每次约 5 秒）。
+    """
+    st = current_service_state(cfg["base_url"])
+    if st["error"]:
+        return True, f"服务当前不可达（{st['error']}），需要启动"
+    same_model = (st["model_file"] == cfg["model_file"])
+    same_ctx = (st["ctx"] == answers["ctx"])
+    # KV：只有期望值不是 f16 时才需要显式带上参数
+    want_ctk = None if answers["ctk"] == "f16" else answers["ctk"]
+    want_ctv = None if answers["ctv"] == "f16" else answers["ctv"]
+    same_kv = (st["ctk"] == want_ctk) and (st["ctv"] == want_ctv)
+    if same_model and same_ctx and same_kv:
+        return False, (f"服务已在目标配置上（{st['model_file']} / "
+                       f"ctx {st['ctx']} / KV {st['ctk'] or 'f16'}"
+                       f"-{st['ctv'] or 'f16'}），跳过重启")
+    why = []
+    if not same_model:
+        why.append(f"模型 {st['model_file']} → {cfg['model_file']}")
+    if not same_ctx:
+        why.append(f"ctx {st['ctx']} → {answers['ctx']}")
+    if not same_kv:
+        why.append(f"KV {st['ctk'] or 'f16'}-{st['ctv'] or 'f16'} → "
+                   f"{answers['ctk']}-{answers['ctv']}")
+    return True, "需要重启：" + "；".join(why)
+
+
 def main():
+    # ⭐ 先自查文件完整性 —— 缺函数就立刻退出（退出码 90），
+    #    而不是等跑到那一行才 NameError（那样已经建了目录、改了服务）。
+    _self_check()
+
     ap = argparse.ArgumentParser(description="可重复运行的性能测试程序")
-    ap.add_argument("--config", required=True, help="运行配置 JSON 文件")
+    ap.add_argument("--config", default=None,
+                    help="运行配置 JSON 文件（--interactive 时作为默认值模板，可省略）")
+    ap.add_argument("--interactive", action="store_true",
+                    help="交互式：依次询问模型 / 上下文 / KV 精度 / 标签，"
+                         "并在需要时重启模型服务")
     ap.add_argument("--out", default=None,
                     help="结果根目录（默认 <development>/results）")
     ap.add_argument("--dry-run", action="store_true",
                     help="只组装输入并打印计划，不发请求")
+    ap.add_argument("--no-restart", action="store_true",
+                    help="交互模式下不自动重启服务；只在参数与服务当前状态一致时继续")
     ap.add_argument("--force", action="store_true",
                     help="同一秒内重复运行时，覆盖而不是加序号（一般不用）")
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    if not args.config and not args.interactive:
+        ap.error("必须给 --config，或者用 --interactive")
 
-    # ⭐ 先校验备注是否符合"只写本轮参数"的规范。
-    #    放在建目录之前 —— 否则校验失败会留下一个空目录。
+    # ══════════════════════════════════════════════════════════════════════
+    #  阶段 A：确定配置（不改任何东西、不建目录、不重启服务）
+    # ══════════════════════════════════════════════════════════════════════
+    # 先读模板配置（交互模式的默认值来源）
+    if args.config:
+        base = load_config(args.config)
+        config_src = args.config
+    else:
+        # 没给配置：用内置默认值当模板（任务集全 10 个、并发 [1,4,10] 等）
+        base = load_config_from_defaults()
+        config_src = "（内置默认值）"
+
+    answers = None
+    if args.interactive:
+        # 交互模式：把注册表里的默认 ctx 也喂给菜单当默认值
+        reg, _err = _read_registry_for_menu()
+        if reg:
+            act = reg.get("default_active") or reg.get("active")
+            for m in reg.get("models", []):
+                if m.get("id") == act:
+                    base.setdefault("ctx_default",
+                                    (m.get("server_args") or {}).get("ctx", 16384))
+        answers = collect_interactive(base)
+        cfg = answers_to_config(answers, base)
+        config_src = args.config or "（内置默认值 + 交互答案）"
+    else:
+        cfg = base
+
+    # ⭐ 校验备注是否符合"只写本轮参数"的规范。
+    #    放在【建目录、重启服务之前】—— 校验失败不该改变任何东西。
     note_ok, note_msg = verify_note_scope(cfg)
     if not note_ok:
         print("=" * 72)
@@ -802,6 +1300,73 @@ def main():
         print("=" * 72)
         sys.exit(3)
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  阶段 B：交互模式下，确认摘要 + 按需重启服务
+    #  ⚠️ 这两步都在【建结果目录之前】——
+    #     这样"用户反悔"或"服务起不来"都不会留下任何残留目录。
+    # ══════════════════════════════════════════════════════════════════════
+    if args.interactive:
+        need, why = plan_service_change(cfg, answers, lambda m: None)
+        print()
+        print("=" * 72)
+        print(" 即将执行")
+        print("=" * 72)
+        print(f"  模型      : {cfg['model_file']}")
+        print(f"  上下文    : {cfg['server_ctx']} token（KV 池总容量，4 slot 共享）")
+        print(f"  KV 精度   : K={cfg['kv_type_k']}  V={cfg['kv_type_v']}")
+        print(f"  标签      : {cfg['label']}")
+        print(f"  任务/轮次 : {len(cfg['task_ids'])} 个 × {cfg['rounds']} 轮")
+        print(f"  并发档    : {cfg['concurrency']}")
+        print(f"  请求总数  : "
+              f"{len(cfg['task_ids']) * cfg['rounds'] * len(cfg['concurrency'])}")
+        print(f"  输出上限  : {cfg['max_tokens']} token")
+        print(f"  服务      : {why}")
+        print(f"  备注      : {cfg['note']}")
+        print("=" * 72)
+        if need and not args.no_restart:
+            print("  ⚠️ 会重启模型服务（约 5 秒），期间无法推理。")
+        elif need and args.no_restart:
+            print("  ❌ 参数与服务当前状态不一致，但指定了 --no-restart。")
+            print("     请先手工把服务切到目标配置，或去掉 --no-restart。")
+            sys.exit(4)
+        ok = _ask("确认开始？(y/N)", default="n")
+        if not ok.lower().startswith("y"):
+            print("  已取消，未做任何改动。")
+            sys.exit(0)
+
+        if need:
+            print()
+            # 重启需要 log 函数，但此时还没有 log —— 先建一个最小版本
+            _tmp_lines = []
+
+            def _pre_log(m):
+                s = f"[{time.strftime('%H:%M:%S')}] {m}"
+                print(s, flush=True)
+                _tmp_lines.append(s)
+            good, msg = restart_with_params(
+                cfg["model_file"], answers["ctx"],
+                answers["ctk"], answers["ctv"], _pre_log)
+            if not good:
+                print()
+                print("=" * 72)
+                print("❌ 模型服务未能按目标配置就绪，已终止（未产生任何结果目录）：")
+                print()
+                for ln in msg.splitlines():
+                    print("   " + ln)
+                print()
+                print("   排查建议：")
+                print("     · 显存不够 → 把上下文调小，或把 KV 精度降到 q8_0 / q4_0")
+                print("     · 想看服务日志 → bash serve.sh logs")
+                print("     · 想手工恢复 → bash serve.sh model")
+                print("=" * 72)
+                sys.exit(5)
+            print(f"  ✅ {msg}")
+        else:
+            print(f"  ✅ {why}")
+
+    # ══════════════════════════════════════════════════════════════════════
+    #  阶段 C：建目录、开跑
+    # ══════════════════════════════════════════════════════════════════════
     # 默认输出目录：<development>/results
     #
     # ⚠️ 目录层级（本文件在 <development>/src/bench/ 下）：
