@@ -19,7 +19,7 @@ from . import config
 from .logutil import log
 
 # 注册表文件位置：<development>/configs/models.json
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "configs"
+CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "configs"
 MODELS_FILE = CONFIG_DIR / "models.json"
 
 # sha256 缓存（算一次挺慢，1.7 GB 要几秒；按 路径+mtime 缓存）

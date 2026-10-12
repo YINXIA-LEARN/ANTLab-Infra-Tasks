@@ -34,11 +34,17 @@ MODEL_FILENAME = os.environ.get("ANTLAB_MODEL_FILE", "Qwen3-0.6B-Q8_0.gguf")
 
 # 模型搜索目录（按顺序找，找到一个就用）
 # 这样评委把模型放哪都能跑，只要设 ANTLAB_MODEL_DIR 就行
+#
+# 目录层级（control/config.py）：
+#     parents[0]=control [1]=src [2]=development [3]=Basic Task [4]=仓库根
 _HERE = Path(__file__).resolve()
+_REPO_ROOT = _HERE.parents[4]        # 仓库根
+_DEV_DIR = _HERE.parents[2]          # development/
 MODEL_SEARCH_DIRS = [
-    os.environ.get("ANTLAB_MODEL_DIR"),          # 环境变量优先
-    str(Path.home() / "antlab" / "models"),      # 本题的开发位置
-    str(_HERE.parents[2] / "models"),            # 仓库内 models/（如果放了）
+    os.environ.get("ANTLAB_MODEL_DIR"),              # 环境变量优先
+    str(Path.home() / "antlab" / "models"),          # 本题的开发位置（模型不在仓库里）
+    str(_DEV_DIR / "models"),                        # development/models/
+    str(_REPO_ROOT / "models"),                      # 仓库根 models/
     str(Path.cwd() / "models"),
     "/models",
     "/opt/models",

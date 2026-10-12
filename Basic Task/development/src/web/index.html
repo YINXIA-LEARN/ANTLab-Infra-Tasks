@@ -18,10 +18,11 @@
 
   <div class="model-picker">
     <label for="model-select">模型</label>
-    <select id="model-select" disabled title="阶段 2 实现">
+    <!-- 初始 disabled 是为了防止"列表还没加载出来就点"；
+         JS 加载成功后会自动解除（失败则保持禁用并提示原因） -->
+    <select id="model-select" disabled title="选择要加载的模型（切换会重启模型服务，约 5 秒）">
       <option>加载中…</option>
     </select>
-    <span class="badge-todo">未实现</span>
     <button class="icon-btn" id="btn-refresh" title="刷新状态">⟳</button>
   </div>
 </header>
@@ -168,7 +169,7 @@
         <div class="runs-head">
           <h4>测试运行</h4>
           <button class="btn btn-tiny" id="btn-refresh-runs"
-                  title="重新扫描 results/ 目录（跑完测试后点这里）">⟳ 刷新</button>
+                  title="重新扫描 test_runs/ 目录（跑完测试后点这里）">⟳ 刷新</button>
         </div>
 
         <div class="runs-filter">
