@@ -1,0 +1,204 @@
+[
+  {
+    "run_id": "baseline-full-r1-20261010-215643",
+    "label": "baseline-full-r1",
+    "note": "0.6B Q8_0 全层上卡 · -c 16384 · 默认 4 slot · kv_unified 共享池 · Flash Attention 开 · 10 任务 x 3 轮 x 并发[1,4,10] · seed 20261009 · max_tokens 2048 · temp 0",
+    "dir": "baseline-full-r1-20261010-215643",
+    "started_at": "2026-10-10T21:56:43+0800",
+    "duration_s": 318.4,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 16384
+    },
+    "vram_after_load_mib": 3527,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 168.32733899900632,
+        "ttft_p95_ms": 247.836819549957,
+        "tpot_median_ms": 4.954056027736451,
+        "total_median_ms": 3071.7067904988653,
+        "throughput_tps": 198.2589046914384,
+        "vram_peak_mib": 3666
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 4187.024168000789,
+        "ttft_p95_ms": 7220.369089398446,
+        "tpot_median_ms": 7.163865772752979,
+        "total_median_ms": 9008.20616999954,
+        "throughput_tps": 212.81456788154617,
+        "vram_peak_mib": 3699
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 10745.409354500225,
+        "ttft_p95_ms": 30495.534447348633,
+        "tpot_median_ms": 13.031934203445822,
+        "total_median_ms": 22877.59347950123,
+        "throughput_tps": 173.5012264228123,
+        "vram_peak_mib": 3724
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 90,
+      "success_rate": 1.0
+    }
+  },
+  {
+    "run_id": "opt-ctx32k-full-r1-20261011-101250",
+    "label": "opt-ctx32k-full-r1",
+    "note": "0.6B Q8_0 全层上卡 · -c 32768 · 默认 4 slot · kv_unified 共享池 · Flash Attention 开 · 10 任务 x 3 轮 x 并发[1,4,10] · seed 20261009 · max_tokens 2048 · temp 0",
+    "dir": "opt-ctx32k-full-r1-20261011-101250",
+    "started_at": "2026-10-11T10:12:50+0800",
+    "duration_s": 304.2,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 32768,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 5953,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 163.32741100006842,
+        "ttft_p95_ms": 255.99966655005346,
+        "tpot_median_ms": 4.67727796688136,
+        "total_median_ms": 3175.615877499922,
+        "throughput_tps": 205.67024977070434,
+        "vram_peak_mib": 6107
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 5232.257065999988,
+        "ttft_p95_ms": 7127.123576800045,
+        "tpot_median_ms": 6.817987170558929,
+        "total_median_ms": 8691.682603499885,
+        "throughput_tps": 225.37430368601622,
+        "vram_peak_mib": 6021
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 8971.66143949994,
+        "ttft_p95_ms": 32078.309989350106,
+        "tpot_median_ms": 11.103348616843764,
+        "total_median_ms": 19419.127816000015,
+        "throughput_tps": 204.78370747344744,
+        "vram_peak_mib": 6104
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 90,
+      "success_rate": 1.0
+    }
+  },
+  {
+    "run_id": "baseline-c1-r1-20261012-182935",
+    "label": "baseline-c1-r1",
+    "note": "0.6B Q8_0 全层上卡 · -c 8192 · 默认 4 slot · 5 任务 x 1 轮 x 并发[1] · seed 20261009 · max_tokens 1024 · temp 0",
+    "dir": "baseline-c1-r1-20261012-182935",
+    "started_at": "2026-10-12T18:29:35+0800",
+    "duration_s": 23.0,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 32768,
+    "total_slots": 4,
+    "server_args": null,
+    "vram_after_load_mib": 6209,
+    "task_ids": [
+      "P01",
+      "P03",
+      "D01",
+      "D03",
+      "C01"
+    ],
+    "rounds": 1,
+    "concurrency": [
+      1
+    ],
+    "seed": 20261009,
+    "max_tokens": 1024,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 5,
+        "n_success": 5,
+        "success_rate": 1.0,
+        "ttft_median_ms": 184.68588999985514,
+        "ttft_p95_ms": 232.9093353999724,
+        "tpot_median_ms": 4.122456731023352,
+        "total_median_ms": 2682.8946690000066,
+        "throughput_tps": 210.32927903183383,
+        "vram_peak_mib": 6226
+      }
+    },
+    "overall": {
+      "n_requests": 5,
+      "n_success": 5,
+      "success_rate": 1.0
+    }
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "run_id": "baseline-c1-r1-20261012-182935",
+  "label": "baseline-c1-r1",
+  "started_at": "2026-10-12T18:29:35+0800",
+  "hardware": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700HX",
+    "cpu_count": 24,
+    "mem_total_mib": 11814,
+    "gpu": [
+      "NVIDIA GeForce RTX 5060 Laptop GPU, 8151 MiB, 573.22, 12.0"
+    ],
+    "cuda_version": "12.8"
+  },
+  "model": {
+    "model_path": "/home/yinxia/antlab/models/Qwen3-0.6B-Q8_0.gguf",
+    "model_name": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 32768,
+    "total_slots": 4,
+    "build_info": "b1-9bf55f4",
+    "chat_template_present": true
+  },
+  "server_config": {
+    "models_registry": null,
+    "active_model": null,
+    "server_args": null,
+    "reasoning": null,
+    "process_cmdline": "/home/yinxia/antlab/src/llama.cpp/build/bin/llama-server -m /home/yinxia/antlab/models/Qwen3-0.6B-Q8_0.gguf -ngl 99 -c 32768 --host 127.0.0.1 --port 8080",
+    "vram_after_load_mib": 6209,
+    "vram_total_mib": 8151
+  },
+  "load_config": {
+    "task_ids": [
+      "P01",
+      "P03",
+      "D01",
+      "D03",
+      "C01"
+    ],
+    "rounds": 1,
+    "concurrency_levels": [
+      1
+    ],
+    "seed": 20261009,
+    "order": "shuffled",
+    "max_tokens": 1024,
+    "temperature": 0.0,
+    "warmup": {
+      "enabled": true,
+      "n": 2,
+      "task_id": "P01"
+    },
+    "base_url": "http://127.0.0.1:8080"
+  },
+  "model_verified": {
+    "expected_from_config": "Qwen3-0.6B-Q8_0.gguf",
+    "actual_running": "Qwen3-0.6B-Q8_0.gguf",
+    "matches": true
+  }
+}
