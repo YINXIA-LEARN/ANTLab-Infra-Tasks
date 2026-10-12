@@ -606,6 +606,7 @@ _REQUIRED_FUNCS = [
     # 配置与校验
     "load_config", "load_config_dict", "load_config_from_defaults",
     "verify_note_scope", "verify_model_matches_config",
+    "verify_service_matches_config",
     # 输入与负载
     "prepare_inputs", "build_plan",
     # 服务
@@ -1232,6 +1233,79 @@ def plan_service_change(cfg, answers, log):
     return True, "需要重启：" + "；".join(why)
 
 
+def verify_service_matches_config(cfg, log):
+    """
+    校验【服务实际参数】与【配置声称的参数】是否一致 ——
+    模型、上下文、KV 精度三样都要对。
+
+    ── 为什么必须校验（网页触发后风险更高）──────────────────────────
+      原来只校验模型，ctx 和 KV 精度不校验。但这两个直接决定：
+        · ctx  —— KV 池总容量。配置写 16384、服务跑 8192 时，
+                  长输入会被截断或报错，而 run-config.json 里写的是 16384，
+                  事后完全看不出这次到底用的哪个。
+        · KV 精度 —— 影响显存占用和输出质量。题目的容量表要求
+                  「说明 KV 精度」，写错就是数据与标签不符。
+
+      网页触发测试时，服务参数由控制层改，改动更隐蔽（不像命令行能看见），
+      所以这道校验更重要：宁可拒绝运行，也不要产出一批口径不明的数据。
+
+      注意：模型那项仍有独立的 verify_model_matches_config()，因为它的
+      报错信息要引导用户"怎么切回来"，措辞不同（且 token 计数依赖词表，
+      模型不符时 token 数也是错的）。这里只补 ctx 与 KV。
+
+    返回 (是否一致, 说明)。
+    """
+    problems = []
+
+    st = current_service_state(cfg["base_url"])
+    if st["error"]:
+        return False, f"读不到服务状态（模型服务没运行？）：{st['error']}"
+
+    # ── ctx ──────────────────────────────────────────────────────────
+    want_ctx = cfg.get("server_ctx")
+    got_ctx = st.get("ctx")
+    if want_ctx is not None and got_ctx is not None and int(want_ctx) != int(got_ctx):
+        problems.append(
+            f"上下文不一致：\n"
+            f"        配置里写的是   {want_ctx}\n"
+            f"        服务实际在跑   {got_ctx}\n"
+            f"      影响：KV 池总容量不同，长输入的行为会不一样，"
+            f"而 run-config.json 记的是配置值 —— 数据与标签不符")
+
+    # ── KV 精度 ───────────────────────────────────────────────────────
+    # 配置没写就不比（老配置没有这两个字段）
+    for key, got_key, flag in (("kv_type_k", "ctk", "-ctk"),
+                               ("kv_type_v", "ctv", "-ctv")):
+        want = cfg.get(key)
+        if not want:
+            continue
+        # 服务没显式给这个参数时，就是 llama.cpp 的默认值 f16
+        got = st.get(got_key) or "f16"
+        if str(want).lower() != str(got).lower():
+            problems.append(
+                f"KV 精度不一致（{flag}）：配置 {want}，服务实际 {got}")
+
+    if problems:
+        return False, ("服务端参数与配置不符：\n"
+                       + "\n".join("      · " + p for p in problems)
+                       + "\n      解决办法：\n"
+                         "        ① 让服务按配置的参数重启"
+                         "（bash serve.sh model 会用注册表的参数；"
+                         "或前端「测试」页启动，它会自己对齐）\n"
+                         "        ② 或者把配置里的 server_ctx / kv_type_k / "
+                         "kv_type_v 改成服务实际的值")
+    if cfg.get("server_ctx") is None:
+        # 老配置没有这个字段 —— 不能默默放过，但也不该拦住运行
+        log("  ⚠️ 配置里没有 server_ctx / kv_type_k / kv_type_v，"
+            "本次无法校验上下文与 KV 精度是否与服务一致。")
+        log(f"     服务实际：ctx {got_ctx} / KV "
+            f"{st.get('ctk') or 'f16'}-{st.get('ctv') or 'f16'}")
+        return True, (f"服务参数未校验（配置缺字段）：ctx {got_ctx} / KV "
+                      f"{st.get('ctk') or 'f16'}-{st.get('ctv') or 'f16'}")
+    return True, (f"服务参数一致：ctx {got_ctx} / KV "
+                  f"{st.get('ctk') or 'f16'}-{st.get('ctv') or 'f16'}")
+
+
 def main():
     # ⭐ 先自查文件完整性 —— 缺函数就立刻退出（退出码 90），
     #    而不是等跑到那一行才 NameError（那样已经建了目录、改了服务）。
@@ -1458,6 +1532,23 @@ def main():
             encoding="utf-8")
         sys.exit(2)
     log(f"  ✅ {msg}")
+
+    # ── 再校验【上下文与 KV 精度】（模型校验只管模型）──────────────────
+    #    ⚠️ 这两项直接决定 KV 池容量和输出质量，配错会让
+    #       run-config.json 记的参数与实际情况不符 —— 数据失去意义。
+    svc_ok, svc_msg = verify_service_matches_config(cfg, log)
+    if not svc_ok:
+        log("")
+        log("❌ 服务端参数校验失败，已终止（不产生数据）：")
+        for ln in svc_msg.splitlines():
+            log("   " + ln)
+        log("")
+        log(f"   目录 {out.name} 里只留了 meta.json 和 ABORTED.txt，可删除")
+        (out / "ABORTED.txt").write_text(
+            f"运行中止：服务端参数与配置不符\n\n{svc_msg}\n\n" + "\n".join(lines),
+            encoding="utf-8")
+        sys.exit(6)
+    log(f"  ✅ {svc_msg}")
 
     # ── 预先组装输入 ─────────────────────────────────────────────────
     log("组装任务输入…")

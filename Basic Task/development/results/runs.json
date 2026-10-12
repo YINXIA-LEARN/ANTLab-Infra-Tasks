@@ -249,5 +249,161 @@
       "n_success": 5,
       "success_rate": 1.0
     }
+  },
+  {
+    "run_id": "run-20261012-211927",
+    "label": "run",
+    "note": "Qwen3-1.7B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "run-20261012-211927",
+    "started_at": "2026-10-12T21:19:27+0800",
+    "duration_s": 582.2,
+    "model": "Qwen3-1.7B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 32768,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 6974,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 28.310128999692097,
+        "ttft_p95_ms": 34.9140673995862,
+        "tpot_median_ms": 9.834328073516545,
+        "total_median_ms": 11718.13107699927,
+        "throughput_tps": 101.24394445064534,
+        "vram_peak_mib": 7094
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 234.80855599973438,
+        "ttft_p95_ms": 751.6572719994653,
+        "tpot_median_ms": 10.251248274692465,
+        "total_median_ms": 11715.470458500931,
+        "throughput_tps": 254.83400612874664,
+        "vram_peak_mib": 6882
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 3281.856002499808,
+        "ttft_p95_ms": 24083.072345399793,
+        "tpot_median_ms": 11.474229324151654,
+        "total_median_ms": 18201.489268500154,
+        "throughput_tps": 274.472985959271,
+        "vram_peak_mib": 6905
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 90,
+      "success_rate": 1.0
+    }
+  },
+  {
+    "run_id": "web-1012-20261012-214757",
+    "label": "web-1012",
+    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "web-1012-20261012-214757",
+    "started_at": "2026-10-12T21:47:57+0800",
+    "duration_s": 260.4,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 32768,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 5850,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 23.8936335008475,
+        "ttft_p95_ms": 27.465302949804027,
+        "tpot_median_ms": 6.675214456154754,
+        "total_median_ms": 3246.8478005002908,
+        "throughput_tps": 153.08606397890134,
+        "vram_peak_mib": 5979
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 170.2441324987376,
+        "ttft_p95_ms": 497.1195817507577,
+        "tpot_median_ms": 7.356764467111866,
+        "total_median_ms": 4535.246997500508,
+        "throughput_tps": 331.9063958203506,
+        "vram_peak_mib": 5930
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 2101.807644499786,
+        "ttft_p95_ms": 9905.79451384974,
+        "tpot_median_ms": 8.462978642250286,
+        "total_median_ms": 7727.76528400027,
+        "throughput_tps": 393.2405229319121,
+        "vram_peak_mib": 6023
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 90,
+      "success_rate": 1.0
+    }
   }
 ]

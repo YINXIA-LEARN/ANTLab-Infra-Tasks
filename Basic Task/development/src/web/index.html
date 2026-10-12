@@ -49,7 +49,7 @@
 <!-- ══ 主区 ═════════════════════════════════════════════════════════ -->
 <nav class="tabs" id="tabs">
   <button class="tab active" data-tab="chat">对话</button>
-  <button class="tab" data-tab="bench">测试 <span class="badge-todo">未实现</span></button>
+  <button class="tab" data-tab="bench">测试</button>
   <button class="tab" data-tab="results">结果</button>
   <button class="tab" data-tab="service">服务 <span class="badge-todo">未实现</span></button>
 </nav>
@@ -142,21 +142,105 @@
     </div>
   </section>
 
-  <!-- ── 测试页（预留） ─────────────────────────────────────────── -->
+  <!-- ── 测试页 ─────────────────────────────────────────────────── -->
   <section class="panel" id="panel-bench">
-    <div class="placeholder">
-      <h3>性能测试</h3>
-      <p>本页为后续阶段预留的界面位置。计划实现：</p>
-      <ul>
-        <li>提示词多选（P01–P04 / D01–D04 / C01–C02）</li>
-        <li>并发数设置（1 – 10）与重复次数（≥3）</li>
-        <li>运行配置选择（基线 / 优化后）</li>
-        <li>启动测试 + 实时进度（已完成 N/M）</li>
-        <li>逐请求状态表：等待 / 运行中 / 成功 / 失败 / 超时 / 取消</li>
-        <li>取消按钮</li>
-      </ul>
-      <p class="hint">对应题目模块 2（性能测试）与模块 3（前端展示的测试配置部分）。</p>
-      <button class="btn btn-ghost" data-todo="性能测试：阶段 3 实现">查看计划</button>
+    <div class="bench-layout">
+
+      <!-- 左：参数表单 -->
+      <div class="bench-form">
+
+        <div class="bench-block">
+          <h4>固定负载（不可改）</h4>
+          <p class="hint">这几项是对比实验的<b>控制变量</b>。改了就没法和其他运行比，
+            所以只能选「用哪份负载定义」，不能在界面上逐项调。</p>
+          <label class="field">
+            <span>负载来源</span>
+            <select id="bench-template"></select>
+          </label>
+          <div id="bench-template-detail" class="bench-kv"></div>
+        </div>
+
+        <div class="bench-block">
+          <h4>可调参数</h4>
+          <label class="field">
+            <span>模型</span>
+            <select id="bench-model"></select>
+          </label>
+          <label class="field">
+            <span>上下文（KV 池总容量）</span>
+            <select id="bench-ctx"></select>
+          </label>
+          <p class="hint">4 个 slot <b>共享</b>这一个池，每槽可用是动态的
+            （约等于 池总量 ÷ 同时在跑的请求数）。</p>
+
+          <label class="field">
+            <span>KV 精度</span>
+            <select id="bench-kv"></select>
+          </label>
+          <p class="hint" id="bench-kv-hint"></p>
+
+          <label class="chk">
+            <input type="checkbox" id="bench-kv-split"> 给 K 和 V 分别设精度（进阶）
+          </label>
+          <div id="bench-kv-split-box" hidden>
+            <label class="field">
+              <span>K 的精度</span>
+              <select id="bench-ctk"></select>
+            </label>
+            <p class="hint">K 决定「该关注谁」，对输出质量更敏感。</p>
+            <label class="field">
+              <span>V 的精度</span>
+              <select id="bench-ctv"></select>
+            </label>
+            <p class="hint">V 参与加权求和，相对不敏感 —— 常见做法是
+              K 保精度、V 降精度来省显存。</p>
+          </div>
+
+          <label class="field">
+            <span>运行标签</span>
+            <input type="text" id="bench-label" placeholder="例如 baseline-web">
+          </label>
+          <p class="hint">会成为结果目录名前缀 <code>&lt;标签&gt;-&lt;时间戳&gt;</code>，
+            只能含字母数字和 <code>- _ .</code></p>
+        </div>
+
+      </div>
+
+      <!-- 右：预演 + 控制 -->
+      <div class="bench-side">
+
+        <div class="bench-block">
+          <h4>即将执行</h4>
+          <table class="kv" id="bench-preview"></table>
+        </div>
+
+        <div class="bench-block">
+          <h4>服务状态</h4>
+          <div id="bench-svc"></div>
+        </div>
+
+        <div class="bench-block" id="bench-leftover-block" hidden>
+          <h4>发现「没跑完」的目录</h4>
+          <div id="bench-leftover-list"></div>
+          <button class="btn btn-tiny" id="btn-clean-leftovers">清理这些</button>
+        </div>
+
+        <div class="bench-actions">
+          <button class="btn btn-primary" id="btn-bench-run">▶ 开始测试</button>
+          <button class="btn" id="btn-bench-stop" hidden>■ 停止</button>
+        </div>
+
+        <div class="bench-block" id="bench-progress-block" hidden>
+          <h4>运行中</h4>
+          <div id="bench-progress"></div>
+        </div>
+
+        <div class="bench-block" id="bench-done-block" hidden>
+          <h4>结果</h4>
+          <div id="bench-done"></div>
+        </div>
+
+      </div>
     </div>
   </section>
 

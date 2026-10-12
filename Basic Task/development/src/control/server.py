@@ -29,6 +29,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from . import config, upstream
+from . import bench_runner
 from . import bench_store
 from . import chat as chat_mod
 from . import files as files_mod
@@ -46,8 +47,9 @@ except ImportError:                                       # pragma: no cover
     file_input = None
 
 # 预留接口清单：尚未实现的统一返回 501，并说明属于哪个阶段
+# 测试页的接口（/api/bench/form /run /status /stop /cleanup /leftovers）
+# 已经实现，不在这个清单里。
 PLANNED_ENDPOINTS = {
-    "/api/bench/run":        (3, "启动一次性能测试（前端触发）"),
     "/api/recovery/restart": (3, "触发服务重启（恢复测试）"),
 }
 
@@ -303,6 +305,33 @@ class Handler(BaseHTTPRequestHandler):
                                       "message": f"{type(e).__name__}: {e}"})
             return
 
+        # ── 测试页：表单数据 / 状态 / 残留（只读）─────────────────────
+        if path == "/api/bench/form":
+            try:
+                self._send_json(200, bench_runner.form_data())
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/bench/form 失败：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "form_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
+        if path == "/api/bench/status":
+            try:
+                self._send_json(200, bench_runner.status())
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/bench/status 失败：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "status_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
+        if path == "/api/bench/leftovers":
+            try:
+                self._send_json(200, {"leftovers": bench_runner.list_leftovers()})
+            except Exception as e:                        # noqa: BLE001
+                self._send_json(500, {"error": "leftovers_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
         if path == "/api/chat":
             self._send_json(405, {"error": "method_not_allowed",
                                   "message": "/api/chat 必须用 POST"})
@@ -491,6 +520,74 @@ class Handler(BaseHTTPRequestHandler):
                     "rollback_failed": 500,
                 }.get(result.get("error"), 400)
             self._send_json(code, result)
+            return
+
+        # ── 测试页：启动 / 停止测试 ──────────────────────────────────
+        if path == "/api/bench/run":
+            try:
+                payload = json.loads(body.decode("utf-8")) if body else {}
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                self._send_json(400, {"error": "bad_json",
+                                      "message": f"请求体不是合法 JSON：{e}"})
+                return
+            params = {
+                "model_file": payload.get("model_file"),
+                "label": payload.get("label"),
+                "ctx": payload.get("ctx"),
+                "ctk": payload.get("ctk"),
+                "ctv": payload.get("ctv"),
+            }
+            try:
+                ok, res = bench_runner.start(
+                    params, template_name=payload.get("template"))
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/bench/run 异常：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "start_exception",
+                                      "message": f"{type(e).__name__}: {e}"})
+                return
+            if ok:
+                self._send_json(200, res)
+            else:
+                code = {"already_running": 409,
+                        "bad_params": 400,
+                        "unknown_model": 404,
+                        "service_not_ready": 503,
+                        "no_bench": 500}.get(res.get("error"), 400)
+                self._send_json(code, res)
+            return
+
+        if path == "/api/bench/stop":
+            try:
+                ok, res = bench_runner.stop()
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/bench/stop 异常：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "stop_exception",
+                                      "message": f"{type(e).__name__}: {e}"})
+                return
+            self._send_json(200 if ok else 409, res)
+            return
+
+        if path == "/api/bench/cleanup":
+            try:
+                payload = json.loads(body.decode("utf-8")) if body else {}
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                self._send_json(400, {"error": "bad_json",
+                                      "message": f"请求体不是合法 JSON：{e}"})
+                return
+            ids = payload.get("run_ids")
+            if not isinstance(ids, list) or not ids:
+                self._send_json(400, {"error": "bad_request",
+                                      "message": "需要 run_ids 数组"})
+                return
+            try:
+                removed, msgs = bench_runner.clean_leftovers(
+                    [str(x) for x in ids])
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/bench/cleanup 异常：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "cleanup_exception",
+                                      "message": f"{type(e).__name__}: {e}"})
+                return
+            self._send_json(200, {"removed": removed, "messages": msgs})
             return
 
         if path == "/api/chat":

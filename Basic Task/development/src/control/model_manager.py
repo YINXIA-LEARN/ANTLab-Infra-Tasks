@@ -318,6 +318,33 @@ def switch_to(model_id, force=False):
         rollback_failed 回退也失败
         no_binary      找不到 llama-server
     """
+    # ── 边界 0：有测试正在跑，禁止切换 ──────────────────────────────────
+    #
+    # ⚠️ 为什么必须有这道闸：测试是一次测几十个请求、跑几分钟，
+    #    中途把模型服务重启成别的参数，正在测的数据就【整体作废】——
+    #    而且不会报错，只会让汇总里混进两种配置的样本。
+    #    所以要拦在门外，而不是事后发现。
+    #
+    # 用局部 import：bench_runner 会 import config/logutil，
+    # 在模块顶层互相 import 容易绕成环。
+    try:
+        from . import bench_runner
+        running_bench = bench_runner.active()
+    except Exception:                                         # noqa: BLE001
+        running_bench = None          # 读不出来就不拦（不能因为读到就拒绝服务）
+    if running_bench:
+        return {
+            "ok": False, "error": "bench_running",
+            "message": (f"有测试正在运行（{running_bench.get('label')}，"
+                        f"PID {running_bench.get('pid')}），"
+                        f"切换会让正在测的数据作废。"
+                        f"请等它跑完，或到「测试」页停止它。"),
+            "active": _state["active"],
+            "bench": {"label": running_bench.get("label"),
+                      "pid": running_bench.get("pid"),
+                      "started_at": running_bench.get("started_at")},
+        }
+
     # ── 边界 1：切换中又来一个切换请求 ──────────────────────────────────────
     if _state["switching"]:
         return {

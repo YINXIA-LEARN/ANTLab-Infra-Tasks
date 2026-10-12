@@ -504,7 +504,7 @@ function initFilesAndBudget() {
 /* ══════════════════════════════════════════════════════════════════════════
    结果页：浏览测试运行
    ──────────────────────────────────────────────────────────────────────────
-   数据来源：results/ 下的真实目录 + runs.json 登记表
+   数据来源：test_runs/ 下的真实目录 + runs.json 登记表
    设计原则：⭐ 以真实目录为准。三种状态都显式显示，不静默出错：
        ok          目录齐全，summary.json 可读
        incomplete  有目录但缺关键文件（跑到一半被中断）
@@ -1224,6 +1224,448 @@ function initResults() {
   refreshRuns(false);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   测试页（阶段 S4）：从网页启动一次性能测试
+   ──────────────────────────────────────────────────────────────────────────
+   后端做的事比这里多得多（子进程管理、防并发、服务参数对齐、残留识别）。
+   前端只负责：填表单 → 预演 → 确认 → 轮询状态 → 显示结果。
+
+   ⚠️ 三条设计决定：
+     ① 固定负载不在界面上逐项调，只能选"用哪份负载定义" ——
+        任务集/轮次/并发是对比实验的控制变量，可调就没法和其他运行比。
+     ② 开始前必须确认（弹窗里列出全部参数）—— 因为它会重启模型服务，
+        影响面不止这一页。
+     ③ 轮询靠后端的状态文件，不靠前端记忆 ——
+        刷新页面、甚至关掉浏览器都不影响测试（子进程是脱离会话起的）。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+let benchForm = null;        // 后端给的表单数据
+let benchPollTimer = null;   // 状态轮询定时器
+let benchNotified = false;   // 完成提示只弹一次
+
+/* ── 读表单当前值 ─────────────────────────────────────────────────────── */
+
+function benchValues() {
+  const split = $('bench-kv-split')?.checked;
+  const kv = $('bench-kv')?.value || 'f16';
+  return {
+    template: $('bench-template')?.value || '',
+    model_file: $('bench-model')?.value || '',
+    ctx: parseInt($('bench-ctx')?.value || '0', 10),
+    ctk: split ? ($('bench-ctk')?.value || 'f16') : kv,
+    ctv: split ? ($('bench-ctv')?.value || 'f16') : kv,
+    label: ($('bench-label')?.value || '').trim(),
+  };
+}
+
+/* ── 加载表单数据 ─────────────────────────────────────────────────────── */
+
+async function benchLoadForm() {
+  try {
+    const r = await fetch('/api/bench/form', { cache: 'no-store' });
+    const d = await r.json();
+    if (d.error) throw new Error(d.message || d.error);
+    benchForm = d;
+    benchFillSelects();
+    benchRenderService();
+    benchRenderLeftovers();
+    benchRenderPreview();
+    if (d.running) benchStartPolling();
+  } catch (e) {
+    const box = $('bench-preview');
+    if (box) box.innerHTML =
+      `<tr><td colspan="2" class="dim">加载失败：${esc(e.message)}</td></tr>`;
+  }
+}
+
+function benchFillSelects() {
+  const d = benchForm;
+  if (!d) return;
+
+  // 负载来源（默认选请求数最多的，通常是 baseline-full）
+  const tpl = $('bench-template');
+  if (tpl) {
+    const cur = tpl.value;
+    tpl.innerHTML = '';
+    (d.templates || []).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.name;
+      o.textContent = `${t.name} —— ${t.n_tasks} 任务 × ${t.rounds} 轮`
+        + ` × 并发[${(t.concurrency || []).join(',')}] = ${t.n_requests} 请求`;
+      tpl.appendChild(o);
+    });
+    const best = (d.templates || []).slice()
+      .sort((a, b) => (b.n_requests || 0) - (a.n_requests || 0))[0];
+    if (best) {
+      tpl.value = (cur && [...tpl.options].some(o => o.value === cur)) ? cur : best.name;
+    }
+  }
+
+  // 模型（只列已安装的；默认跟服务当前一致）
+  const ms = $('bench-model');
+  if (ms) {
+    const cur = ms.value;
+    ms.innerHTML = '';
+    (d.models || []).forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.file;
+      o.textContent = `${m.file}  (${m.params || '?'} / ${m.quant || '?'})`;
+      if (!m.installed) { o.disabled = true; o.textContent += '  —— 未安装'; }
+      ms.appendChild(o);
+    });
+    const live = d.service && d.service.model_file;
+    if (cur && [...ms.options].some(o => o.value === cur && !o.disabled)) ms.value = cur;
+    else if (live && [...ms.options].some(o => o.value === live)) ms.value = live;
+  }
+
+  // 上下文（默认跟服务当前一致）
+  const cs = $('bench-ctx');
+  if (cs) {
+    const cur = cs.value;
+    cs.innerHTML = '';
+    (d.ctx_choices || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = String(v); o.textContent = String(v);
+      cs.appendChild(o);
+    });
+    const live = d.service && d.service.ctx;
+    cs.value = (cur && [...cs.options].some(o => o.value === cur)) ? cur
+      : (live ? String(live) : '16384');
+  }
+
+  // KV 精度（合并选择 + K/V 分开选择，共用一份选项）
+  const fillKv = (sel) => {
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '';
+    (d.kv_choices || []).forEach(k => {
+      const o = document.createElement('option');
+      o.value = k.value;
+      o.textContent = `${k.value} —— ${k.desc}`;
+      sel.appendChild(o);
+    });
+    const live = (d.service && d.service.ctk) || 'f16';
+    sel.value = (cur && [...sel.options].some(o => o.value === cur)) ? cur : live;
+  };
+  fillKv($('bench-kv'));
+  fillKv($('bench-ctk'));
+  fillKv($('bench-ctv'));
+
+  // 默认标签
+  const lb = $('bench-label');
+  if (lb && !lb.value) {
+    const t = new Date();
+    lb.value = 'web-' + String(t.getMonth() + 1).padStart(2, '0')
+      + String(t.getDate()).padStart(2, '0');
+  }
+}
+
+/* ── 预演：列出即将执行的参数 ─────────────────────────────────────────── */
+
+function benchRenderPreview() {
+  const box = $('bench-preview');
+  if (!box || !benchForm) return;
+  const v = benchValues();
+  const t = (benchForm.templates || []).find(x => x.name === v.template) || {};
+  const nReq = (t.n_tasks || 0) * (t.rounds || 0) * ((t.concurrency || []).length);
+  const rows = [
+    ['负载定义', t.name || '—'],
+    ['任务 × 轮次', `${t.n_tasks ?? '—'} 个 × ${t.rounds ?? '—'} 轮`],
+    ['并发档', `[${(t.concurrency || []).join(', ')}]`],
+    ['请求总数', nReq ? String(nReq) : '—'],
+    ['模型', v.model_file || '—'],
+    ['上下文', `${v.ctx} token（共享池）`],
+    ['KV 精度', `K=${v.ctk}  V=${v.ctv}`],
+    ['运行标签', v.label || '（必填）'],
+    ['将生成的编号', v.label ? `${v.label}-<时间戳>` : '—'],
+  ];
+  box.innerHTML = rows.map(([k, val]) =>
+    `<tr><td class="dim">${esc(k)}</td><td class="mono">${esc(val)}</td></tr>`).join('');
+  benchRenderService();
+}
+
+/* ── 服务状态：要不要重启 ─────────────────────────────────────────────── */
+
+function benchRenderService() {
+  const box = $('bench-svc');
+  if (!box || !benchForm) return;
+  const svc = benchForm.service || {};
+  const v = benchValues();
+
+  if (svc.error) {
+    box.innerHTML = `<div class="notice notice-err">模型服务不可达：${esc(svc.error)}
+      <br><span class="dim">开始测试时会尝试启动它。</span></div>`;
+    return;
+  }
+  const diffs = [];
+  if (svc.model_file !== v.model_file) diffs.push(`模型 ${svc.model_file} → ${v.model_file}`);
+  if (Number(svc.ctx) !== Number(v.ctx)) diffs.push(`上下文 ${svc.ctx} → ${v.ctx}`);
+  if ((svc.ctk || 'f16') !== v.ctk || (svc.ctv || 'f16') !== v.ctv) {
+    diffs.push(`KV ${svc.ctk || 'f16'}-${svc.ctv || 'f16'} → ${v.ctk}-${v.ctv}`);
+  }
+
+  const cur = `<table class="kv">
+    <tr><td class="dim">当前模型</td><td class="mono">${esc(svc.model_file || '—')}</td></tr>
+    <tr><td class="dim">当前上下文</td><td class="mono">${esc(svc.ctx ?? '—')}</td></tr>
+    <tr><td class="dim">当前 KV</td><td class="mono">${esc((svc.ctk || 'f16') + '-' + (svc.ctv || 'f16'))}</td></tr>
+    <tr><td class="dim">slot 数</td><td class="mono">${esc(svc.slots ?? '—')}</td></tr>
+  </table>`;
+
+  box.innerHTML = cur + (diffs.length
+    ? `<div class="notice notice-warn">开始前会<b>重启模型服务</b>（约 5 秒）：</div>
+       <div class="mono dim" style="padding:0 2px 6px">${esc(diffs.join('；'))}</div>
+       <div class="hint" style="padding:0 2px">重启期间对话页暂时不可用。</div>`
+    : `<div class="notice notice-ok">服务已在目标配置上，<b>无需重启</b></div>`);
+}
+
+/* ── 残留目录 ─────────────────────────────────────────────────────────── */
+
+function benchRenderLeftovers() {
+  const blk = $('bench-leftover-block');
+  const list = $('bench-leftover-list');
+  if (!blk || !list || !benchForm) return;
+  const ls = benchForm.leftovers || [];
+  blk.hidden = !ls.length;
+  if (!ls.length) return;
+  list.innerHTML = ls.map(x => `<div class="bench-kv">
+    <b class="mono">${esc(x.run_id)}</b>
+    <div class="dim">${esc(x.reason)} · ${x.age_s} 秒前</div>
+    <div class="dim mono">${esc((x.files || []).join(', '))}</div>
+  </div>`).join('');
+}
+
+/* ── 启动 ─────────────────────────────────────────────────────────────── */
+
+async function benchStart() {
+  const v = benchValues();
+  if (!v.label) { toast('请填运行标签'); return; }
+  if (!/^[A-Za-z0-9._\-]+$/.test(v.label)) {
+    toast('标签只能含字母数字和 - _ .'); return;
+  }
+  const t = (benchForm?.templates || []).find(x => x.name === v.template) || {};
+  const nReq = (t.n_tasks || 0) * (t.rounds || 0) * ((t.concurrency || []).length);
+
+  if (!await benchConfirm(v, t, nReq)) return;
+
+  const btn = $('btn-bench-run');
+  btn.disabled = true;
+  btn.textContent = '启动中…';
+  try {
+    const r = await fetch('/api/bench/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(v),
+    });
+    const d = await r.json();
+    if (d.error) {
+      toast('启动失败：' + (d.message || d.error), 7000);
+      if (d.error === 'already_running') benchStartPolling();
+      return;
+    }
+    benchNotified = false;
+    $('bench-done-block').hidden = true;
+    toast(d.restarted_service ? '已重启服务并启动测试' : '测试已启动', 3200);
+    benchStartPolling();
+  } catch (e) {
+    toast('启动失败：' + e.message, 7000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ 开始测试';
+  }
+}
+
+function benchConfirm(v, t, nReq) {
+  return new Promise((resolve) => {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = `
+      <div class="modal">
+        <div class="modal-head">
+          <h3>确认开始测试</h3>
+          <button class="btn btn-tiny" data-no>✕</button>
+        </div>
+        <div class="modal-body">
+          <table class="kv">
+            <tr><td class="dim">负载定义</td><td class="mono">${esc(t.name || '—')}</td></tr>
+            <tr><td class="dim">请求总数</td><td class="mono">${nReq}</td></tr>
+            <tr><td class="dim">模型</td><td class="mono">${esc(v.model_file)}</td></tr>
+            <tr><td class="dim">上下文</td><td class="mono">${v.ctx} token（共享池）</td></tr>
+            <tr><td class="dim">KV 精度</td><td class="mono">K=${esc(v.ctk)} V=${esc(v.ctv)}</td></tr>
+            <tr><td class="dim">运行标签</td><td class="mono">${esc(v.label)}</td></tr>
+          </table>
+          <div class="notice notice-warn" style="margin-top:10px">
+            开始后如需要会<b>重启模型服务</b>，期间对话页不可用。<br>
+            测试过程中<b>不要切换模型</b>（会被拒绝 —— 那会让数据作废）。<br>
+            跑完前不要关控制层。
+          </div>
+          <div class="modal-foot">
+            <button class="btn" data-no>取消</button>
+            <button class="btn btn-primary" data-yes>确认开始</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+    const done = (val) => { mask.remove(); resolve(val); };
+    mask.querySelectorAll('[data-no]').forEach(b =>
+      b.addEventListener('click', () => done(false)));
+    mask.querySelector('[data-yes]').addEventListener('click', () => done(true));
+    mask.addEventListener('click', (e) => { if (e.target === mask) done(false); });
+  });
+}
+
+/* ── 停止 ─────────────────────────────────────────────────────────────── */
+
+async function benchStop() {
+  if (!confirm('确定停止正在跑的测试？\n\n已跑完的请求记录会留在结果目录里，\n但这一次不会出现在登记表里。')) return;
+  try {
+    const r = await fetch('/api/bench/stop', { method: 'POST' });
+    const d = await r.json();
+    if (d.error) toast('停止失败：' + (d.message || d.error), 6000);
+    else toast('已停止', 3000);
+    benchPollOnce();
+  } catch (e) {
+    toast('停止失败：' + e.message, 6000);
+  }
+}
+
+/* ── 状态轮询 ─────────────────────────────────────────────────────────── */
+
+function benchStartPolling() {
+  const stopBtn = $('btn-bench-stop');
+  if (stopBtn) stopBtn.hidden = false;
+  benchPollOnce();
+  if (!benchPollTimer) benchPollTimer = setInterval(benchPollOnce, 3000);
+}
+
+function benchStopPolling() {
+  if (benchPollTimer) { clearInterval(benchPollTimer); benchPollTimer = null; }
+  const stopBtn = $('btn-bench-stop');
+  if (stopBtn) stopBtn.hidden = true;
+}
+
+async function benchPollOnce() {
+  let d;
+  try {
+    const r = await fetch('/api/bench/status', { cache: 'no-store' });
+    d = await r.json();
+  } catch (e) { return; }
+
+  const prog = $('bench-progress-block');
+  const done = $('bench-done-block');
+
+  if (!d.has_record) {
+    if (prog) prog.hidden = true;
+    if (done) done.hidden = true;
+    benchStopPolling();
+    return;
+  }
+
+  if (d.running) {
+    if (done) done.hidden = true;
+    if (prog) {
+      prog.hidden = false;
+      const s = d.elapsed_s || 0;
+      $('bench-progress').innerHTML = `
+        <table class="kv">
+          <tr><td class="dim">运行标签</td><td class="mono">${esc(d.label)}</td></tr>
+          <tr><td class="dim">PID</td><td class="mono">${esc(d.pid)}</td></tr>
+          <tr><td class="dim">已运行</td><td class="mono">${Math.floor(s / 60)} 分 ${s % 60} 秒</td></tr>
+          <tr><td class="dim">服务</td><td class="mono dim">${esc(d.service_note || '—')}</td></tr>
+          <tr><td class="dim">日志</td><td class="mono dim">${esc((d.log_file || '').split('/').pop())}</td></tr>
+        </table>
+        <p class="hint">跑完这里会自动提示，不用守着；关掉浏览器也不影响测试。</p>`;
+    }
+    return;
+  }
+
+  // 已结束（正常完成 / 被中断 / 没能开始）
+  if (prog) prog.hidden = true;
+  if (!done) return;
+  done.hidden = false;
+  const brief = d.summary_brief || {};
+  let html;
+  if (d.outcome === 'finished') {
+    html = `
+      <div class="notice notice-ok">✅ 测试完成</div>
+      <table class="kv">
+        <tr><td class="dim">运行编号</td><td class="mono">${esc(d.run_id)}</td></tr>
+        <tr><td class="dim">成功 / 总</td><td class="mono">${esc(brief.n_success ?? '—')} / ${esc(brief.n_requests ?? '—')}</td></tr>
+        <tr><td class="dim">成功率</td><td class="mono">${brief.success_rate != null ? (brief.success_rate * 100).toFixed(1) + '%' : '—'}</td></tr>
+        <tr><td class="dim">耗时</td><td class="mono">${brief.duration_s != null ? Number(brief.duration_s).toFixed(0) + ' 秒' : '—'}</td></tr>
+      </table>
+      <div class="modal-foot" style="justify-content:flex-start">
+        <button class="btn btn-primary" id="btn-goto-result">去结果页查看</button>
+      </div>`;
+  } else if (d.outcome === 'aborted') {
+    html = `<div class="notice notice-warn">⚠️ 测试被中断（没有 summary.json）</div>
+      <div class="dim">${esc(d.aborted_hint || '')}</div>
+      <div class="mono" style="margin-top:6px">${esc(d.run_id || '')}</div>`;
+  } else {
+    html = `<div class="notice notice-err">❌ 测试没能开始</div>
+      <div class="dim">${esc(d.failed_hint || '')}</div>
+      <div class="dim mono" style="margin-top:6px">日志：${esc((d.log_file || '').split('/').pop())}</div>`;
+  }
+  $('bench-done').innerHTML = html;
+  $('btn-goto-result')?.addEventListener('click', () => {
+    const tab = Array.from(document.querySelectorAll('.tab'))
+      .find(t => t.dataset.tab === 'results');
+    if (tab) tab.click();
+    setTimeout(() => refreshRuns(false), 250);
+  });
+
+  benchStopPolling();
+  if (!benchNotified) {
+    benchNotified = true;
+    toast(d.outcome === 'finished'
+      ? `测试完成：${d.run_id}` : '测试已结束（未正常完成）', 7000);
+  }
+  benchLoadForm();      // 刷新残留列表与服务状态
+}
+
+/* ── 清理残留 ─────────────────────────────────────────────────────────── */
+
+async function benchCleanLeftovers() {
+  const ls = benchForm?.leftovers || [];
+  if (!ls.length) return;
+  if (!confirm(`删除这 ${ls.length} 个「没跑完」的目录？\n\n`
+    + ls.map(x => '· ' + x.run_id).join('\n')
+    + '\n\n这些目录里没有 summary.json，不是正式结果。')) return;
+  try {
+    const r = await fetch('/api/bench/cleanup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ run_ids: ls.map(x => x.run_id) }),
+    });
+    const d = await r.json();
+    if (d.error) { toast('清理失败：' + (d.message || d.error), 6000); return; }
+    toast(`已删除 ${(d.removed || []).length} 个目录`, 4000);
+    benchLoadForm();
+  } catch (e) { toast('清理失败：' + e.message, 6000); }
+}
+
+/* ── 初始化 ───────────────────────────────────────────────────────────── */
+
+function initBench() {
+  ['bench-template', 'bench-model', 'bench-ctx', 'bench-kv',
+   'bench-ctk', 'bench-ctv', 'bench-label'].forEach(id => {
+    const el = $(id);
+    if (el) {
+      el.addEventListener('change', benchRenderPreview);
+      if (el.tagName === 'INPUT') el.addEventListener('input', benchRenderPreview);
+    }
+  });
+  $('bench-kv-split')?.addEventListener('change', (e) => {
+    $('bench-kv-split-box').hidden = !e.target.checked;
+    $('bench-kv').disabled = e.target.checked;
+    benchRenderPreview();
+  });
+  $('btn-bench-run')?.addEventListener('click', benchStart);
+  $('btn-bench-stop')?.addEventListener('click', benchStop);
+  $('btn-clean-leftovers')?.addEventListener('click', benchCleanLeftovers);
+
+  benchLoadForm();
+}
+
 /* ── Tab 切换 ─────────────────────────────────────────────────────────── */
 
 function initTabs() {
@@ -1558,6 +2000,7 @@ function boot() {
   initModelSelect();      // ⭐ S3：模型下拉框
   initFilesAndBudget();   // ⭐ A：文件选择 + token 预算
   initResults();          // ⭐ R：测试结果浏览
+  initBench();            // ⭐ S4：测试页（从网页启动测试）
   initChat();
 
   refreshStatus();
@@ -1566,7 +2009,7 @@ function boot() {
   const rf = $('btn-refresh');
   if (rf) rf.addEventListener('click', () => { refreshStatus(); toast('已刷新状态'); });
 
-  console.log('[ANTLab] 前端已加载（S3 模型切换 + A 文件输入 + R 结果浏览）');
+  console.log('[ANTLab] 前端已加载（S4 测试页 + S3 模型切换 + A 文件输入 + R 结果浏览）');
 }
 
 document.addEventListener('DOMContentLoaded', boot);

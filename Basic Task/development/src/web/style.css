@@ -68,8 +68,18 @@ b{font-weight:600}
   padding:8px 18px;background:var(--bg-3);
   border-bottom:1px solid var(--line);
   font-size:13px;color:var(--fg-dim);flex:0 0 auto;
+  /* ⚠️ 超长时的行为要显式定，否则模型名一长就把右边的"更新于"挤掉，
+     看起来像文字重叠。模型名通常很长（Qwen3-0.6B-Q8_0.gguf + 量化 + ctx）。 */
+  overflow:hidden;
 }
-.statusbar b{color:var(--fg)}
+.statusbar b{color:var(--fg);font-weight:600}
+.st-item{white-space:nowrap}
+/* 模型名这一项允许省略，其余项保持完整 —— 它是唯一会变很长的 */
+#st-model{
+  display:inline-block;max-width:280px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  vertical-align:bottom;
+}
 .st-sep{color:var(--fg-mute)}
 .st-right{margin-left:auto;color:var(--fg-mute);font-size:12px}
 .led{
@@ -417,3 +427,56 @@ pre.output{
 .notice-ok{border-color:#166534;background:#0f2417;color:#86efac}
 .notice-err{border-color:#7f1d1d;background:#2a1518;color:#fca5a5}
 .notice-warn{border-color:#78350f;background:#2a1f0d;color:#fcd34d}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   测试页（S4）
+   复用已有的 .field / .chk / .kv / .notice-* / .modal，只加布局类。
+   左窄右宽：左边填参数，右边看预演与状态 ——
+   因为"改一个值就要看到影响"，两边并排比上下堆更好用。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.bench-layout{
+  display:grid;
+  grid-template-columns:minmax(320px,1fr) minmax(340px,1.1fr);
+  gap:14px;
+  align-items:start;
+}
+@media (max-width:900px){ .bench-layout{grid-template-columns:1fr} }
+
+.bench-form,.bench-side{display:flex;flex-direction:column;gap:12px}
+
+.bench-block{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--bg-2);
+  padding:10px 12px;
+}
+.bench-block h4{
+  margin:0 0 8px;
+  font-size:13px;
+  color:var(--fg);
+  font-weight:600;
+}
+/* 块内的 hint 不要额外上下留白，否则块会很高 */
+.bench-block .hint{margin:4px 0 8px}
+.bench-block .field:last-child{margin-bottom:0}
+
+/* 残留目录条目 */
+.bench-kv{
+  border-left:2px solid var(--warn);
+  padding:4px 0 4px 8px;
+  margin:6px 0;
+  font-size:12px;
+}
+.bench-kv b{color:var(--fg)}
+
+.bench-actions{display:flex;gap:8px}
+.bench-actions .btn{flex:1}
+
+/* 预演表里值那一列可能很长（模型文件名），允许换行 */
+#bench-preview td{vertical-align:top;word-break:break-all}
+#bench-svc .kv td{vertical-align:top}
+
+/* 上下文 / KV 的下拉项说明较长，选中后不要把布局撑破 */
+#bench-model,#bench-template{max-width:100%}
+
