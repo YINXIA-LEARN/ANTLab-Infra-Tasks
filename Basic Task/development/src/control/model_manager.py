@@ -167,6 +167,11 @@ def _build_args(entry, model_path):
     按注册表里的 server_args 组装启动参数。
 
     ⭐ 参数跟着模型走：小模型可以给大上下文，大模型要收着，否则 KV Cache 吃满显存。
+
+    ⚠️ 这里必须和 serve.sh 的 model_start() 保持一致！
+       两条路径都能启动模型服务（serve.sh model / 网页切换模型），
+       如果参数不一样，同一个模型会因为"谁启动的"而跑出不同配置，
+       测试数据就不可比了。改动时两边一起改。
     """
     sa = entry.get("server_args") or {}
     args = [
@@ -174,6 +179,13 @@ def _build_args(entry, model_path):
         "-m", str(model_path),
         "-ngl", str(sa.get("ngl", 99)),
         "-c",   str(sa.get("ctx", 4096)),
+        # ── 为"提交标准要求的证据"固定加的两个参数（与 serve.sh 一致）──
+        #   -v            打开详细日志，才有 GPU 驻留证据
+        #                 （offloaded N/N layers、layer N: dev = CUDA0、
+        #                   CUDA0 KV buffer size）
+        #   --cache-ram 0 关闭主机 RAM prompt cache，让缓存工作集驻留显存
+        #                 （题目第 17 行要求；不影响 KV 位置与前缀复用）
+        "-v", "--cache-ram", "0",
         "--host", config.MODEL_SERVER_HOST,
         "--port", str(config.MODEL_SERVER_PORT),
     ]

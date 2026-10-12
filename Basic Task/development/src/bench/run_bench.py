@@ -135,29 +135,83 @@ def collect_model_info(base_url):
 
 def read_server_config():
     """
-    服务配置（题意①）—— 从注册表和控制层日志里取。
+    服务配置（题意①）—— 从注册表和进程命令行里取。
     这些参数直接决定性能，必须随结果一起存。
+
+    ⚠️ 路径层级：本文件在 <development>/src/bench/ 下，
+       所以 parents[0]=bench [1]=src [2]=development [3]=仓库根。
+       注册表在 <development>/configs/models.json —— 用 parents[2]。
+       （迁移到 development/ 之后布局变了，早先写的 parent.parent 会
+         指到 src/configs，读不到。）
+
+    ⚠️ 键名：注册表里现在存的是 default_active（默认值），
+       运行中的选择在 .runtime/active-model.json。
+       这里两个键都认，是为了兼容还没改名的旧注册表。
     """
     cfg = {"models_registry": None, "active_model": None,
            "server_args": None, "reasoning": None}
-    root = Path(__file__).resolve().parent.parent
-    reg = root / "configs" / "models.json"
+    dev = Path(__file__).resolve().parents[2]
+    reg = dev / "configs" / "models.json"
     if reg.is_file():
         try:
             d = json.loads(reg.read_text(encoding="utf-8"))
             cfg["models_registry"] = str(reg)
-            cfg["active_model"] = d.get("active")
+            active = d.get("default_active") or d.get("active")
+            cfg["active_model"] = active
             for m in d.get("models", []):
-                if m["id"] == d.get("active"):
+                if m["id"] == active:
                     cfg["server_args"] = m.get("server_args")
                     break
         except Exception as e:                                # noqa: BLE001
             cfg["reasoning"] = f"读注册表失败：{e}"
 
+    # ★ 运行时选择的模型（.runtime/active-model.json，不进 git）
+    rt = dev / ".runtime" / "active-model.json"
+    if rt.is_file():
+        try:
+            cfg["runtime_active_model"] = json.loads(
+                rt.read_text(encoding="utf-8")).get("active")
+        except Exception:                                     # noqa: BLE001
+            pass
+
     # 模型服务自己的启动参数（从进程命令行取，最权威）
+    #
+    # ⭐ 为什么要存这个：
+    #    题目要求「提供模型计算层和 KV 在 GPU 的日志与监控证据」，
+    #    而 GPU 驻留行为由启动参数决定（-ngl / -nv / KV 位置 /
+    #    是否关掉主机 RAM prompt cache）。
+    #    只从注册表读 server_args 是不够的 —— 那只是"打算怎么起"，
+    #    进程命令行才是"实际怎么起的"，两者可能不一致
+    #    （比如注册表改了但服务没重启）。
+    #    把它随结果存下来，报告里就能逐条对上，也能事后判断
+    #    两次运行的口径是否真的可比。
     out = _run(["bash", "-c",
                 "ps -o args= -p $(pgrep -f llama-server | head -1) 2>/dev/null"])
     cfg["process_cmdline"] = out
+
+    # 从命令行里解析出几个关键开关，方便报告直接引用
+    if out:
+        toks = out.split()
+        flags = {}
+
+        def _val(name):
+            if name in toks:
+                i = toks.index(name)
+                if i + 1 < len(toks):
+                    return toks[i + 1]
+            return None
+
+        flags["ngl"] = _val("-ngl") or _val("--n-gpu-layers")
+        flags["ctx"] = _val("-c") or _val("--ctx-size")
+        flags["np"] = _val("-np") or _val("--parallel")
+        flags["cache_ram"] = _val("--cache-ram") or _val("-cram")
+        flags["cache_type_k"] = _val("-ctk") or _val("--cache-type-k")
+        flags["cache_type_v"] = _val("-ctv") or _val("--cache-type-v")
+        flags["flash_attn"] = _val("-fa") or _val("--flash-attn")
+        flags["verbose"] = ("-v" in toks) or ("--verbose" in toks)
+        # cache_ram 为 "0" 表示主机 RAM prompt cache 已关闭
+        flags["prompt_cache_disabled"] = (flags["cache_ram"] == "0")
+        cfg["server_flags"] = flags
 
     # 显存（模型加载后，题意"记录模型加载后"）
     out = _run(["nvidia-smi", "--query-gpu=memory.used,memory.total",
@@ -167,9 +221,6 @@ def read_server_config():
         cfg["vram_after_load_mib"] = int(parts[0]) if parts else None
         cfg["vram_total_mib"] = int(parts[1]) if len(parts) > 1 else None
 
-    # KV 容量（配置值；实测值由 kv_capacity.py 单独测）
-    if cfg.get("server_args") and collect_model_info.__name__:
-        return cfg
     return cfg
 
 
@@ -603,7 +654,7 @@ def make_run_id(label, out_root, force=False):
 
 def update_runs_registry(out_root, record):
     """
-    维护 results/runs.json —— 所有运行的登记表。
+    维护 test_runs/runs.json —— 所有运行的登记表。
 
     ── 为什么需要它 ──────────────────────────────────────────────────
       加了时间戳之后目录不会覆盖，但也带来新问题：跑多了找不到。
@@ -725,7 +776,7 @@ def verify_model_matches_config(cfg, model_info, log):
 def main():
     ap = argparse.ArgumentParser(description="可重复运行的性能测试程序")
     ap.add_argument("--config", required=True, help="运行配置 JSON 文件")
-    ap.add_argument("--out", default=None, help="结果根目录（默认 ../results）")
+    ap.add_argument("--out", default=None, help="结果根目录（默认 _work/test_runs）")
     ap.add_argument("--dry-run", action="store_true",
                     help="只组装输入并打印计划，不发请求")
     ap.add_argument("--force", action="store_true",
@@ -751,7 +802,7 @@ def main():
         sys.exit(3)
 
     out_root = Path(args.out) if args.out else \
-        Path(__file__).resolve().parent.parent.parent / "results"
+        Path(__file__).resolve().parent.parent / "test_runs"
     out_root.mkdir(parents=True, exist_ok=True)
 
     # ⭐ 编号：<标签>-<时间戳>，绝不覆盖已有结果

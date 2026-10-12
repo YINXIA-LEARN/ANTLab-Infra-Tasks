@@ -161,6 +161,26 @@ bash serve.sh restart    # 重启控制层（日志追加，不清空历史）
 python3 run.py
 ```
 
+### 模型服务固定带上的两个参数
+
+`serve.sh` 与网页切换模型（`control/model_manager.py`）组装启动命令时，
+除了注册表里的 `-ngl` / `-c`，还固定带两个参数：
+
+| 参数 | 作用 | 为什么要它 |
+|---|---|---|
+| **`-v`** | 打开详细日志 | 默认 verbosity=3 时启动日志只有 9 行，**完全没有 GPU 信息**。题目要求「提供模型计算层和 KV 在 GPU 的日志证据」，加 `-v` 后约 4300 行，才有 `offloaded 29/29 layers to GPU`、`llama_kv_cache: layer N: dev = CUDA0`、`CUDA0 KV buffer size = …` 这些关键行 |
+| **`--cache-ram 0`** | 关闭主机 RAM prompt cache | 题目第 17 行要求「关闭主机 RAM prompt cache，使基础阶段的缓存工作集驻留显存」；第 18 行把「KV 卸载到主机内存」划归进阶方向。**只关主机搬运，不影响 KV 位置，也不影响计算层的前缀复用** |
+
+**⚠️ 两条启动路径必须保持一致**（`serve.sh model` 与网页切换模型）。
+若只改一处，同一个模型会因为"谁启动的"而跑出不同配置，测试数据就不可比了。
+改动时两边一起改。
+
+**⚠️ 口径提示**：这两个参数是在迁移之后才加的。
+`results/` 里 2026-10-12 之前的运行是在 prompt cache 开启、无 `-v` 的情况下跑的，
+**不能和之后重跑的数据放进同一张对比表**。判断方法见 [`../results/README.md`](../results/README.md)。
+
+---
+
 ### 前端访问方式
 
 浏览器打开 **http://localhost:8000** （或局域网内 `http://<WSL IP>:8000`）。

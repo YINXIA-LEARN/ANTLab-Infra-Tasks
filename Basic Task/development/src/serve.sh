@@ -21,10 +21,18 @@
 #     bash serve.sh logs       实时看控制层日志
 #     bash serve.sh model      只重启模型服务（换模型/改参数时用）
 #
-#  ⭐ 模型参数从 configs/models.json 读（注册表里 active 的那条）
+#  ⭐ 模型参数从注册表读（configs/models.json）
 #     为什么：以前这里的 -c 是硬编码的，跟注册表不一致 ——
 #     界面显示 ctx=16384，实际服务跑 4096，属于"说了不算"。
 #     现在以注册表为唯一来源，避免两处配置打架。
+#
+#  ⚠️ 注册表的路径是 "$DIR/../configs/models.json"，注意那个 ../
+#     因为迁移到 development/ 之后，目录布局是：
+#         development/configs/models.json     ← 配置（进 git）
+#         development/src/serve.sh            ← 本脚本
+#         development/src/logs/               ← 运行痕迹
+#     早先配置在 src/ 下，迁移后配置上移了一层。这里必须跟着改，
+#     否则报"读不到注册表"。
 #
 # ============================================================================
 set -uo pipefail
@@ -46,6 +54,13 @@ CONTROL_LOG="$LOGDIR/control.log"
 
 # ── 从注册表解析当前模型（唯一配置来源）──────────────────────────────────
 # 输出四行：文件名 / ngl / ctx / 模型绝对路径（空=没找到）
+#
+# ⚠️ 关于 active 与 default_active：
+#    注册表里现在存的是 default_active（默认值），运行中选择存在
+#    .runtime/active-model.json。这个函数是"重启模型服务"用的，
+#    语义上应该用【注册表的默认值】—— 因为切换模型时会由
+#    model_manager 自己带上参数重启，不经过这里。
+#    两个键都认，是为了兼容还没改名的旧注册表。
 read_registry() {
   python3 - "$DIR/../configs/models.json" <<'PY' 2>/dev/null || true
 import json, os, sys
@@ -55,14 +70,19 @@ p = Path(sys.argv[1])
 if not p.is_file():
     sys.exit(1)
 d = json.loads(p.read_text(encoding="utf-8"))
-active = d.get("active")
+# 兼容新旧两种键名
+active = d.get("default_active") or d.get("active")
 entry = next((m for m in d.get("models", []) if m["id"] == active), None)
+if entry is None:
+    # 连默认值都没写，退回列表第一个
+    entry = (d.get("models") or [None])[0]
 if entry is None:
     sys.exit(1)
 
 cands = [
     os.environ.get("ANTLAB_MODEL_DIR"),
     str(Path.home() / "antlab" / "models"),
+    # 注册表在 <development>/configs/ 下，所以 parent.parent 就是 development/
     str(p.resolve().parent.parent / "models"),
     str(Path.cwd() / "models"),
     "/models",
@@ -143,7 +163,7 @@ model_start() {
   local reg
   reg=$(read_registry)
   if [ -z "$reg" ]; then
-    c_err "  ❌ 读不到注册表 ../configs/models.json（或 active 无效）"
+    c_err "  ❌ 读不到注册表 configs/models.json（或 active 无效）"
     return 1
   fi
   local FILE NGL CTX MPATH
@@ -159,8 +179,32 @@ model_start() {
   fi
 
   echo "  启动模型服务：$FILE（ngl=$NGL, ctx=$CTX）"
+  # ⭐ 两个为"提交标准要求的证据"而加的参数：
+  #
+  #   -v / --verbose
+  #       默认 verbosity=3 时，llama-server 只打 9 行启动日志，
+  #       里面【完全没有】GPU 信息 —— 搜 offloaded / n_gpu_layers /
+  #       CUDA / KV self 全是 0 命中。
+  #       题目要求「提供模型计算层和 KV 在 GPU 的日志证据」，
+  #       加 -v 后日志约 4300 行，才有这几行关键证据：
+  #           load_tensors: offloaded 29/29 layers to GPU
+  #           load_tensors: layer N assigned to device CUDA0
+  #           llama_kv_cache: layer N: dev = CUDA0
+  #           llama_kv_cache: CUDA0 KV buffer size = 224.00 MiB
+  #       代价只是日志变长（每次启动约 4300 行）。
+  #
+  #   --cache-ram 0
+  #       关掉"主机 RAM prompt cache"。默认是开的（上限 8192 MiB），
+  #       会把【空闲 slot 的 KV 状态】搬到主机内存，下次用再搬回来。
+  #       题目第 17 行要求「关闭主机 RAM prompt cache，使基础阶段的
+  #       缓存工作集驻留显存」，且第 18 行把"KV 卸载到主机内存"
+  #       划归进阶方向。所以基础阶段的基线必须是纯显存内推理。
+  #       ⚠️ 只关主机搬运，不影响：
+  #          · KV 本身仍在显存（CUDA0 KV buffer size 不变）
+  #          · 计算层的前缀复用（--cache-prompt 仍为 enabled）
   nohup "$MODEL_BIN" -m "$MPATH" \
       -ngl "$NGL" -c "$CTX" \
+      -v --cache-ram 0 \
       --host "$MODEL_HOST" --port "$MODEL_PORT" \
       >> "$MODEL_LOG" 2>&1 &
   echo $! > "$MODEL_PIDFILE"
