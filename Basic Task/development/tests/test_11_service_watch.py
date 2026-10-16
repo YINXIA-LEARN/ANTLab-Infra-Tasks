@@ -224,6 +224,52 @@ def main():
         or (reachable is False and health != "ok"),
         f"reachable={reachable} health={health!r}")
 
+    # ── ⑧ ★ 跑完了但服务中断过的运行，不能显示成"完整" ──────────────
+    #
+    # ⚠️ 这一条是用户反馈后加的。原来的问题：
+    #    有几次测试【所有请求都跑完了】，summary 里 state=finished，
+    #    界面上就显示"完整"。可实际上那次测试期间模型服务掉过、
+    #    被拉起来过 —— 中间那几条请求是失败的，而且重启前后
+    #    KV 池与前缀缓存被清空，两段数据特性不同，
+    #    混在一起的中位数没法解释。这种运行不该叫"完整"。
+    #
+    # 判据：运行目录里的 service-starts.jsonl（"服务被拉起"的记录）
+    runs, _ = api("/api/bench/runs")
+    rl = runs.get("runs") or []
+    rep.note(f"结果页共 {len(rl)} 个运行")
+    bad = []
+    for r in rl:
+        st = r.get("status")
+        n = r.get("n_service_starts") or 0
+        pids = r.get("service_pids") or []
+        # 有服务重启记录（或跨了多个 PID）的运行，绝不能是 "ok"（完整）
+        if (n > 0 or len(pids) > 1) and st == "ok":
+            bad.append((r.get("run_id"), n, pids))
+        # 标成 interrupted 的必须真的有过中断
+        if st == "interrupted" and n == 0 and len(pids) <= 1:
+            bad.append((r.get("run_id"), "interrupted 但无任何中断证据",
+                        n, pids))
+    rep.check_true(
+        "★ 服务中断过的运行不能显示为『完整』（status=ok）",
+        not bad,
+        f"有问题的运行：{bad}")
+
+    n_int = sum(1 for r in rl if r.get("status") == "interrupted")
+    if n_int:
+        rep.note(f"其中 {n_int} 个标为 interrupted（跑完了但服务中断过）")
+        one = next(r for r in rl if r.get("status") == "interrupted")
+        rep.check_true(
+            "interrupted 的说明里讲清了『不要当完整测量』",
+            "完整" in (one.get("status_text") or ""),
+            f"status_text={one.get('status_text')!r}")
+        rep.check_true(
+            "interrupted 的运行 usable 必须是 False",
+            one.get("usable") is False,
+            f"usable={one.get('usable')}")
+    else:
+        rep.note("（当前没有被标为 interrupted 的运行 —— 这属于『这条边界"
+                 "没被现有数据覆盖』，要造：开着开关跑测试、中途停服务）")
+
     print()
     return rep.finish()
 

@@ -635,6 +635,89 @@ def stop(reason="用户从网页停止"):
 #  状态查询
 # ══════════════════════════════════════════════════════════════════════════
 
+def current_run_dir():
+    """
+    返回【正在跑的那次测试】的结果目录（Path），判断不出来就返回 None。
+
+    ⚠️ 为什么要单独提供一个：`service_watch` 需要把"服务被拉起过"这件事
+       写进【那一次运行的目录里】。不写进去的话，事后就没法从运行数据
+       本身看出"这次测试期间服务掉过" —— 只能靠人去翻控制层日志，
+       而日志是会滚动的。
+
+    ⚠️ 为什么这里用 results_before 判断目录，而不是比目录 mtime：
+       时钟跳变时会误判。results_before 是开跑前记下的"已存在目录名"，
+       当前目录 = 现在存在、但不在那个集合里的那个。
+    """
+    st = read_state()
+    if not st:
+        return None
+    if not _alive(st.get("pid")):
+        return None
+    before = set(st.get("results_before") or [])
+    if not RESULTS_ROOT.is_dir():
+        return None
+    cands = [d for d in sorted(RESULTS_ROOT.iterdir())
+             if d.is_dir() and d.name not in before]
+    return cands[-1] if cands else None
+
+
+def last_run_dir(max_age_s=900):
+    """
+    返回【最近一次测试】的结果目录（Path），没有就 None。
+
+    与 current_run_dir() 的区别：**测试已经退出也照样返回**（只要不太旧）。
+
+    ⚠️ 为什么需要它（这是实测踩出来的时序问题）：
+       服务在测试期间掉线时，监测器的处理链是
+          发现掉线 → 自动重启 → 服务就绪 → 记录"服务被拉起"
+       而重启要花 2~3 秒。如果测试本身很短，它会在"重启完成"之前
+       就退出了。等 `_record_service_start` 去查当前运行目录时，
+       `current_run_dir()` 因为进程已死返回 None ——
+       于是这条关键记录【写不进运行目录】，结果页就仍然显示"完整"。
+       实测时序：
+           21:11:20  测试跑完退出
+           21:11:22  监测器才发现服务不可达
+           21:11:24  自动重启启动
+           21:11:26  服务起来 → 想记进运行目录，但已经找不到目录了 ❌
+
+    ⚠️ max_age_s 不是多余的：不设上限的话，一个人手动重启服务时
+       也会往"昨天那次运行"里写一条记录，把历史数据污染掉。
+
+    ⚠️ 注意不要拿 status() 来实现这个 —— 那个函数很重
+       （要读 summary、比对模型），而这里只需一个目录名。
+    """
+    d = current_run_dir()
+    if d is not None:
+        return d
+
+    st = read_state()
+    if not st:
+        return None
+
+    # ① 首选用状态里记的 run_id（start() 很早就把它写进去了）
+    rid = st.get("run_id")
+    if rid:
+        cand = RESULTS_ROOT / str(rid)
+        if cand.is_dir():
+            return cand
+
+    # ② 兜底：从 results_before 推（测试已退出，进程查不到了）
+    before = set(st.get("results_before") or [])
+    if not RESULTS_ROOT.is_dir():
+        return None
+    cands = [x for x in sorted(RESULTS_ROOT.iterdir())
+             if x.is_dir() and x.name not in before]
+    if not cands:
+        return None
+    newest = cands[-1]
+    try:
+        if (time.time() - newest.stat().st_mtime) > max_age_s:
+            return None
+    except OSError:
+        return None
+    return newest
+
+
 def status():
     """
     当前测试的状态（给网页轮询）。

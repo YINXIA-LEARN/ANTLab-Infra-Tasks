@@ -177,6 +177,85 @@ def _record(ev):
     return ev
 
 
+def _record_service_start(pid, source, note=None):
+    """
+    记一次"模型服务被拉起"。
+
+    写两个地方：
+      ① logs/service-starts.jsonl   —— 全局的，跨运行可查
+      ② <正在跑的那次运行>/service-starts.jsonl —— ★ 关键
+
+    ⚠️ 为什么必须写进【运行目录】：
+       用户在结果页看到一次运行显示"完整"，可实际上这次测试期间
+       服务掉过、被拉起来过。要判这件事，光看 requests.jsonl 不够 ——
+       请求记录里的 service_instance_pid 在"服务正好死在那条请求上"时
+       是 None（实测 web-1016-20261016-183636 就是这样）。
+       所以要把"服务的启停动作"按时间落进运行目录，
+       事后（以及界面）才能据此判断这次运行的完整性。
+
+       这条判据比"比较首尾 PID"更牢靠：
+         · PID 可能复用（进程号回收后再分配）
+         · 请求记录里的 PID 可能是 None
+         · 服务可能在两次请求之间重启，请求记录根本看不出来
+       而"有没有被拉起过"是直接记录的事实。
+    """
+    rec = {
+        "t": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "ts": time.time(),
+        "pid": pid,
+        "source": source,     # auto_recover / manual_page / manual_script
+        "note": note,
+    }
+    # ① 全局
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        with (LOGS_DIR / "service-starts.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError as e:                                      # noqa: BLE001
+        log(f"写服务启动记录失败：{e}")
+
+    # ② 最近一次运行目录
+    #
+    # ⚠️ 这里必须用 last_run_dir()（测试退出了也能找到），
+    #    不能用 current_run_dir()（只认"正在跑"）。
+    #    原因：重启要 2~3 秒，短测试会在重启完成前就退出，
+    #    那时 current_run_dir() 返回 None，这条关键记录就丢了 ——
+    #    而结果页恰恰要靠它才知道"这次跑的时候服务掉过"。
+    #    实测踩过：21:11:20 测试退出 / 21:11:26 服务起来，记录写不进去。
+    try:
+        from . import bench_runner
+        d = bench_runner.last_run_dir()
+        if d is not None:
+            with (d / "service-starts.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            log(f"服务监测：已把『服务被拉起』记进运行目录 "
+                f"{d.name}/service-starts.jsonl")
+        else:
+            log("服务监测：找不到可归属的运行目录，这次启动只记在全局日志里")
+    except Exception as e:                                    # noqa: BLE001
+        log(f"写运行目录的服务启动记录失败：{type(e).__name__}: {e}")
+    return rec
+
+
+def list_service_starts(run_dir):
+    """读某次运行目录里的"服务被拉起"记录"""
+    f = Path(run_dir) / "service-starts.jsonl"
+    if not f.is_file():
+        return []
+    out = []
+    try:
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    except OSError:
+        return []
+    return out
+
+
 def list_events(limit=50):
     if not EVENTS_FILE.is_file():
         return []
@@ -199,7 +278,7 @@ def list_events(limit=50):
 #  重启
 # ══════════════════════════════════════════════════════════════════════════
 
-def _do_restart(reason, run_state=None):
+def _do_restart(reason, run_state=None, source="unknown"):
     """
     执行一次重启：停 → 起 → 就绪确认。
 
@@ -214,6 +293,7 @@ def _do_restart(reason, run_state=None):
     ev = {
         "kind": "restart",
         "reason": reason,
+        "source": source,        # auto_recover / manual_page / manual_script
         "test_run": (run_state or {}).get("label"),
         "test_run_id": None,
         "ok": False,
@@ -321,6 +401,20 @@ def _do_restart(reason, run_state=None):
     if not vok:
         ev["error"] = vwhy
     ev["ms"] = round((time.time() - t0) * 1000, 1)
+
+    # ⭐ 记一次"服务被拉起"。写进运行目录，供事后与界面判断这次运行的完整性。
+    #    只在真的起来了才记（起来了但验证不通过也记 —— 那也是拉起过）。
+    try:
+        from . import model_manager
+        _record_service_start(
+            pid=model_manager._read_pid(),
+            source=ev.get("source") or "unknown",
+            note=f"{reason} / 耗时 {ev['ms']}ms / "
+                 f"恢复后验证{'通过' if vok else '未通过'}")
+        ev["service_start_recorded"] = True
+    except Exception as e:                                    # noqa: BLE001
+        ev["service_start_recorded"] = f"失败：{type(e).__name__}: {e}"
+
     return _record(ev)
 
 
@@ -487,7 +581,8 @@ def _tick():
     try:
         log(f"服务监测：模型服务掉线，且{why_action}"
             f" → 自动重启（本次第 {used + 1}/{cap} 次）")
-        ev = _do_restart(f"测试期间服务掉线（{why}）；{why_action}", st)
+        ev = _do_restart(f"测试期间服务掉线（{why}）；{why_action}", st,
+                         source="auto_recover")
         with _lock:
             _state["restarts_this_run"] = used + 1
             _state["last_restart_at"] = time.time()
@@ -500,7 +595,7 @@ def _tick():
             _state["recovering"] = False
 
 
-def restart_now(reason="手动触发"):
+def restart_now(reason="手动触发", source="manual_page"):
     """
     手动触发一次完整流程：停 → 起 → 就绪确认 → 恢复后验证。
 
@@ -523,7 +618,7 @@ def restart_now(reason="手动触发"):
         _state["recovering"] = True
     try:
         log(f"服务页：手动重启模型服务（{reason}）")
-        ev = _do_restart(reason)
+        ev = _do_restart(reason, source=source)
         with _lock:
             if ev.get("ok"):
                 _state["n_restarts_total"] += 1

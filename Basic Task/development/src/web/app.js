@@ -611,12 +611,14 @@ function filteredRuns() {
 /* 运行状态图标。
    ⚠️ 早先只有"ok → ✅，其它 → ⚠️"两档，于是"中途被停止"和
       "目录坏了"长得一样。现在分开：
-        ok         ✅ 完整
-        aborted    ⏸  测试未完成（中途被停止）—— 有部分数据可看
-        running    ⏳ 正在跑
-        incomplete ⚠️ 数据缺失（可能不是本程序产生的目录）          */
+        ok           ✅ 完整
+        interrupted  🔶 跑完了，但期间服务中断过（整体数据不可靠）
+        aborted      ⏸  测试未完成（中途被停止）—— 有部分数据可看
+        running      ⏳ 正在跑
+        incomplete   ⚠️ 数据缺失（可能不是本程序产生的目录）          */
 function runStatusIcon(status) {
-  const m = { ok: '✅', aborted: '⏸', running: '⏳', incomplete: '⚠️' };
+  const m = { ok: '✅', interrupted: '🔶', aborted: '⏸',
+              running: '⏳', incomplete: '⚠️' };
   return m[status] || '⚠️';
 }
 
@@ -665,6 +667,13 @@ function renderRunsList() {
       ${bits ? `<div class="run-brief">${bits}</div>` : ''}
       ${r.model_verified === false
         ? '<div class="run-line warn">⚠️ 模型校验未通过（配置与实跑模型不一致）</div>' : ''}
+      ${(r.service_starts && r.service_starts.length)
+        ? `<div class="run-line warn">🔧 测试期间模型服务被拉起过 ${r.service_starts.length} 次`
+          + `（${r.service_starts.map(s => esc(s.source || '?')).join('、')}）</div>`
+        : (r.service_pids && r.service_pids.length > 1
+            ? `<div class="run-line warn">🔧 测试期间模型服务换过进程`
+              + `（${r.service_pids.join(' → ')}）</div>`
+            : '')}
     `;
     el.addEventListener('click', (ev) => {
       if (ev.target.matches('input[type=checkbox]')) return;

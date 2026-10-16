@@ -341,8 +341,19 @@ def start_only():
         f"（ctx={(entry.get('server_args') or {}).get('ctx')}）")
     started = _start_server(entry, model_path)
     h2 = upstream.get_health()
+    ok = bool(started and h2.get("state") == "ok")
+    # ⭐ 记一次"服务被拉起"（写进正在跑的那次运行目录）
+    #    ⚠️ 用延迟导入：service_watch 也 import model_manager，
+    #       顶层互相 import 会成环。
+    try:
+        from . import service_watch
+        service_watch._record_service_start(
+            pid=_read_pid(), source="manual_start",
+            note=f"从服务页手动启动 {entry['file']}")
+    except Exception as e:                                    # noqa: BLE001
+        log(f"记录服务启动失败（不影响启动本身）：{type(e).__name__}: {e}")
     return {
-        "ok": bool(started and h2.get("state") == "ok"),
+        "ok": ok,
         "action": "started",
         "message": ("模型服务已启动并就绪" if started
                     else "启动失败或等待就绪超时，看 logs/model-server.log"),

@@ -273,6 +273,63 @@ def _describe_run_dir(d, reg_entry):
     has_requests = rq.is_file() and rq.stat().st_size > 0
     item["has_requests"] = has_requests
 
+    # ══════════════════════════════════════════════════════════════════
+    #  ★ 服务中断检测（这一条决定了该不该显示"完整"）
+    #
+    #  ⚠️ 为什么需要它（实测遇到的问题）：
+    #     有几次测试【所有请求都跑完了】，summary 里 state=finished，
+    #     界面上就显示"完整"。可实际上那次测试期间模型服务掉过、
+    #     被拉起来过 —— 中间那几条请求是失败的（service_lost / incomplete），
+    #     而且重启前后 KV 池与前缀缓存都被清空，两段数据特性不同，
+    #     混在一起的中位数没法解释。
+    #     这种运行不该叫"完整"。
+    #
+    #  ⚠️ 判据用【服务被拉起的动作】，不用"比较首尾 PID"：
+    #     早先想过用 service_instance.pid_at_start != pid_at_end，
+    #     但实测不可靠 —— web-1016-20261016-183636 的 pid_at_end 是
+    #     None（那条请求记 PID 时进程已经没了），比不出来。
+    #     而请求记录里的 service_instance_pid 也可能是 None，
+    #     PID 本身还可能被系统回收复用。
+    #     "有没有被拉起过"是直接记录的事实，最牢靠。
+    # ══════════════════════════════════════════════════════════════════
+    starts = []
+    sf = d / "service-starts.jsonl"
+    if sf.is_file():
+        try:
+            for line in sf.read_text(encoding="utf-8",
+                                     errors="replace").splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        starts.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+        except OSError:
+            starts = []
+    item["n_service_starts"] = len(starts)
+    item["service_starts"] = starts
+
+    # 兜底判据：请求记录里出现了多个不同的 PID，也说明服务换过进程。
+    # ⚠️ 这是"补充"不是"主判据" —— 它的已知弱点见上面。
+    pids = set()
+    if has_requests:
+        try:
+            for line in rq.open(encoding="utf-8"):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    pid = json.loads(line).get("service_instance_pid")
+                except json.JSONDecodeError:
+                    continue
+                if pid is not None:
+                    pids.add(pid)
+        except OSError:
+            pass
+    item["service_pids"] = sorted(pids)
+    interrupted = bool(starts) or len(pids) > 1
+    item["service_interrupted"] = interrupted
+
     # ⚠️ 这里要特别处理"summary.json 根本不存在"的情况：
     #    中途被停止的运行【不会】有 summary.json（停止得太早），
     #    而 run-state.json 里明确写着 state=aborted。
@@ -309,6 +366,26 @@ def _describe_run_dir(d, reg_entry):
     elif not isinstance(summary, dict):
         item["status"] = "incomplete"
         item["status_text"] = "summary.json 无法解析"
+    elif interrupted:
+        # ★ 请求都跑完了，但期间服务掉过 → 不是"完整"
+        #
+        # ⚠️ 两种证据来源，文案要分开说 —— 否则会出现
+        #    「中断过 0 次」这种自相矛盾的显示（实测踩过）：
+        #      · service-starts.jsonl 有记录 → 知道确切次数
+        #      · 只靠请求记录里的 PID 不一致 → 只知道"换过进程"，
+        #        不知道换了几次（那是本功能上线前的旧运行）
+        item["status"] = "interrupted"
+        if starts:
+            head = (f"⚠️ 跑完了，但测试期间【模型服务中断过 "
+                    f"{len(starts)} 次】（已自动拉起）")
+        else:
+            head = ("⚠️ 跑完了，但测试期间【模型服务换过进程】"
+                    "（请求记录里出现了多个服务进程号）")
+        item["status_text"] = (
+            head + " —— 重启前后的 KV 池与前缀缓存被清空，"
+                   "两段数据特性不同，不能当作一次完整测量，"
+                   "也不要与其他配置直接对比")
+        # ⚠️ usable 保持 False：它的整体中位数不可靠（理由同上）
     else:
         item["status"] = "ok"
         item["status_text"] = "完整"
