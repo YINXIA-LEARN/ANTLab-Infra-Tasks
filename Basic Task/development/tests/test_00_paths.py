@@ -123,8 +123,15 @@ def main():
     print("═" * 72)
     print(" 二、测试配置里的 input_dir")
     print("═" * 72)
-    cfg_dir = SRC / "bench" / "configs"
+    # ⚠️ 配置目录从 src/bench/configs/ 挪到了 development/configs/
+    #    （提交标准要求配置放这里，且要和运行缓存分开）。
+    #    这里跟着改，否则这段检查会静默跳过（目录不存在 → glob 为空）。
+    cfg_dir = DEV_DIR / "configs"
+    rep.check_true("正式配置目录存在（development/configs/）",
+                   cfg_dir.is_dir(), f"实际找的是 {cfg_dir}")
     for f in sorted(cfg_dir.glob("*.json")):
+        if f.name == "models.json":
+            continue          # 模型注册表不是负载配置，没有 input_dir
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -198,12 +205,43 @@ def main():
     wild = [
         SRC / "test_runs", SRC / "results", SRC / "configs", SRC / "models",
         DEV_DIR / "test_runs", DEV_DIR / "src" / "results",
+        # ⚠️ 正式配置挪到 development/configs/ 之后，src/bench/configs/
+        #    不该再存在 —— 存在的说明迁移没做完，或者代码又往旧路径写了。
+        SRC / "bench" / "configs",
     ]
     for p in wild:
         ok = not p.exists()
         rep.check_true(f"不存在野生目录：{p.relative_to(DEV_DIR)}", ok,
                        f"{p} 不该存在 —— 说明某个路径算错了")
         print(f"  {'✅' if ok else '❌'} {p.relative_to(DEV_DIR)}")
+
+    # ══ 六、配置迁移后的落位检查 ══════════════════════════════════════
+    #
+    #  提交标准要求配置在 development/configs/ 下，且【正式配置】与
+    #  【网页运行缓存】分开。这一节把这两条落成断言 ——
+    #  否则哪天有人又把缓存写回会进 git 的目录，没人会发现。
+    print()
+    print("═" * 72)
+    print(" 六、配置落位（正式 vs 运行缓存 分开）")
+    print("═" * 72)
+
+    cfg = DEV_DIR / "configs"
+    for name in ("baseline-c1.json", "baseline-full.json",
+                 "opt-ctx32k-full.json", "models.json"):
+        rep.check_true(f"configs/{name} 在正式配置目录里",
+                       (cfg / name).is_file())
+
+    # 正式配置目录里【不该】有网页生成的缓存
+    leaked = sorted(p.name for p in cfg.glob("web-*.json")) if cfg.is_dir() else []
+    rep.check_true(
+        "正式配置目录里没有网页运行缓存（web-*.json）",
+        not leaked,
+        f"漏进来的：{leaked} —— 缓存应该写到 .runtime/web-configs/")
+
+    # 运行缓存目录应该存在（跑过一次测试就会有）
+    rt = DEV_DIR / ".runtime" / "web-configs"
+    rep.note(f"运行缓存目录 {rt.relative_to(DEV_DIR)} "
+             f"{'存在，' + str(len(list(rt.glob('*.json')))) + ' 个文件' if rt.is_dir() else '尚不存在（还没从网页跑过测试）'}")
 
     return rep.finish()
 

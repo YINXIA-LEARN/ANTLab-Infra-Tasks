@@ -256,7 +256,7 @@ load_model: initializing, n_slots = 4, n_ctx_slot = 32768, kv_unified = 'true'
 
 ```bash
 cd "Basic Task/development/src"
-python3 bench/run_bench.py --config bench/configs/baseline-full.json --out ../results
+python3 bench/run_bench.py --config ../configs/baseline-full.json --out ../results
 ```
 
 **它做什么**：
@@ -276,7 +276,7 @@ python3 bench/run_bench.py --config bench/configs/baseline-full.json --out ../re
 
 ### 测试配置
 
-`bench/configs/` 下每份 JSON 定义一个固定负载：
+`../configs/` 下每份 JSON 定义一个固定负载：
 
 ```jsonc
 {
@@ -355,5 +355,5 @@ results/<运行编号>/
 - [ ] 下载模型并核对 SHA256（见第四节）
 - [ ] `bash serve.sh start`，`bash serve.sh status` 应显示 health=ok
 - [ ] 浏览器打开 http://localhost:8000 ，对话页发一条消息应能流式回答
-- [ ] `python3 bench/run_bench.py --config bench/configs/baseline-c1.json --out ../results`
+- [ ] `python3 bench/run_bench.py --config ../configs/baseline-c1.json --out ../results`
 - [ ] 结果页刷新，应能看到新出现的运行

@@ -59,7 +59,31 @@ _DEV = Path(__file__).resolve().parents[2]
 
 SERVE_SH = _SRC / "serve.sh"
 BENCH_PY = _SRC / "bench" / "run_bench.py"
-CONFIGS_DIR = _SRC / "bench" / "configs"
+
+# ══════════════════════════════════════════════════════════════════════════
+#  配置目录：分成两个，不要混
+#
+#  ⚠️ 为什么必须分开（这是迁移时特意拆的）：
+#
+#    WORK_CONFIGS_DIR  正式负载配置 —— 进 git、给人读、交付物
+#        <development>/configs/
+#        放 baseline-c1.json / baseline-full.json / opt-ctx32k-full.json
+#
+#    RUNTIME_CONFIGS_DIR  网页每次跑测试生成的配置快照 —— 运行痕迹
+#        <development>/.runtime/web-configs/
+#
+#    早先两类都堆在 src/bench/configs/ 下，结果那里躺着 20 个
+#    web-<标签>-<时间戳>.json。两个坏处：
+#      ① 看目录的人以为那些也是正式配置
+#      ② fix_run 的表单是 glob 整个目录列模板的，
+#         于是模板下拉框里冒出一堆"我以前跑过的运行"
+#
+#    而且提交标准明确要求配置放在 development/configs/ 下，
+#    所以正式配置必须上移一层。
+# ══════════════════════════════════════════════════════════════════════════
+CONFIGS_DIR = _DEV / "configs"                    # 正式配置（交付物）
+RUNTIME_CONFIGS_DIR = _DEV / ".runtime" / "web-configs"   # 网页生成的缓存
+
 RESULTS_ROOT = _DEV / "results"
 STATE_FILE = _SRC / "logs" / "bench_run.json"
 
@@ -332,7 +356,7 @@ def restart_service(model_file, ctx, ctk, ctv, timeout=180):
 
 def write_run_config(params, template_name=None):
     """
-    按网页给的参数生成一份运行配置，写到 bench/configs/ 下。
+    按网页给的参数生成一份运行配置，写到 .runtime/web-configs/ 下。
 
     ⭐ 为什么落成文件而不是用 --interactive：
        · 交互模式读 stdin，网页给不了
@@ -358,16 +382,24 @@ def write_run_config(params, template_name=None):
     }
     # 如果指定了模板配置，用它的负载部分（任务/轮次/并发/seed…）
     if template_name:
+        # ⚠️ 模板只从【正式配置目录】找 —— 不搜 .runtime 里的缓存。
+        #    否则用户在网页上跑过一次，那个标签就会出现在模板下拉框里，
+        #    下次再选它，等于"用上一次的运行参数"，越滚越乱。
         tp = CONFIGS_DIR / template_name
-        if tp.is_file():
-            try:
-                t = json.loads(tp.read_text(encoding="utf-8"))
-                for k in ("task_ids", "rounds", "concurrency", "seed", "order",
-                          "max_tokens", "temperature", "timeout_s", "warmup"):
-                    if k in t:
-                        base[k] = t[k]
-            except (OSError, json.JSONDecodeError) as e:
-                return None, None, f"读模板配置失败：{e}"
+        if not tp.is_file():
+            return None, None, (
+                f"找不到模板配置 {template_name}（在 {CONFIGS_DIR} 下）。"
+                f"可用的模板："
+                + ("、".join(sorted(p.name for p in CONFIGS_DIR.glob('*.json')))
+                   if CONFIGS_DIR.is_dir() else "（目录不存在）"))
+        try:
+            t = json.loads(tp.read_text(encoding="utf-8"))
+            for k in ("task_ids", "rounds", "concurrency", "seed", "order",
+                      "max_tokens", "temperature", "timeout_s", "warmup"):
+                if k in t:
+                    base[k] = t[k]
+        except (OSError, json.JSONDecodeError) as e:
+            return None, None, f"读模板配置失败：{e}"
 
     # 网页可调的项
     base["label"] = params["label"]
@@ -392,9 +424,11 @@ def write_run_config(params, template_name=None):
 
     stamp = time.strftime("%Y%m%d-%H%M%S")
     name = f"web-{params['label']}-{stamp}.json"
-    path = CONFIGS_DIR / name
+    # ⚠️ 写进 .runtime/ —— 这是【运行痕迹】，不是交付物。
+    #    写在会进 git 的目录里，跑一次测试就多一个文件要提交。
+    path = RUNTIME_CONFIGS_DIR / name
     try:
-        CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
+        RUNTIME_CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(base, ensure_ascii=False, indent=2) + "\n",
                         encoding="utf-8")
     except OSError as e:
@@ -818,7 +852,22 @@ def form_data():
     # 模板配置（负载来源）
     templates = []
     if CONFIGS_DIR.is_dir():
+        # ⚠️ 只列【正式配置目录】里的模板。
+        #    早先这个目录同时也堆着网页生成的 web-*.json 缓存，
+        #    于是模板下拉框里会冒出一堆"我以前跑过的运行"，
+        #    用户根本分不清哪个是设计好的固定负载、哪个是自己上次跑的参数。
+        #    现在缓存挪到 .runtime/ 了，这里天然只剩下正式配置。
+        #
+        # ⚠️ 但要排除 models.json：它也在 configs/ 下，但它是
+        #    「模型注册表」（有哪些模型、怎么启动、SHA256），
+        #    不是「负载配置」。不排除的话，下拉框里会出现一个
+        #    "models.json · 0 任务 × None 轮"的怪选项 —— 选了它
+        #    task_ids 为空，测试直接跑不出东西。
+        #    （这是把 models.json 和负载配置放进同一个目录后暴露出来的）
+        _NOT_TEMPLATE = {"models.json"}
         for p in sorted(CONFIGS_DIR.glob("*.json")):
+            if p.name in _NOT_TEMPLATE:
+                continue
             try:
                 d = json.loads(p.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):

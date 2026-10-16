@@ -667,7 +667,7 @@ def load_config_from_defaults():
     """
     不给 --config 时的内置默认值（交互模式用）。
 
-    ⚠️ 值必须和 bench/configs/baseline-full.json 保持一致 ——
+    ⚠️ 值必须和 ../configs/baseline-full.json 保持一致 ——
        否则"交互模式"和"配置模式"跑出来的负载不是一回事，没法对比。
        所以这里不另发明一套默认值。
     """

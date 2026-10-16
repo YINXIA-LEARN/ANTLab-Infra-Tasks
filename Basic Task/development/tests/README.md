@@ -25,7 +25,7 @@ python3 test_03_metrics.py     # 退出码 0 通过 / 1 有失败 / 2 脚本自�
 
 ```bash
 cd ../src
-python3 bench/run_bench.py --config bench/configs/baseline-full.json
+python3 bench/run_bench.py --config ../configs/baseline-full.json
 ```
 
 ---
