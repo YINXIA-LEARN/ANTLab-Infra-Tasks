@@ -51,7 +51,7 @@
   <button class="tab active" data-tab="chat">对话</button>
   <button class="tab" data-tab="bench">测试</button>
   <button class="tab" data-tab="results">结果</button>
-  <button class="tab" data-tab="service">服务 <span class="badge-todo">未实现</span></button>
+  <button class="tab" data-tab="service">服务</button>
 </nav>
 
 <main>
@@ -318,21 +318,97 @@
     </div>
   </section>
 
-  <!-- ── 服务页（预留） ─────────────────────────────────────────── -->
+  <!-- ── 服务页 ──────────────────────────────────────────────────── -->
   <section class="panel" id="panel-service">
-    <div class="placeholder">
-      <h3>服务管理</h3>
-      <p>本页为后续阶段预留的界面位置。计划实现：</p>
-      <ul>
-        <li>服务状态详情（模型、上下文、slot 逐个状态）</li>
-        <li>显存占用实时曲线</li>
-        <li>服务日志查看</li>
-        <li><b>服务重启与恢复测试</b>：触发退出 → 检测 → 重启 → 就绪确认</li>
-        <li>恢复时间线：异常时间 / 恢复时间 / 受影响请求 / 最终状态</li>
-        <li>中断与重试请求的状态与计数</li>
-      </ul>
-      <p class="hint">对应题目模块 4（报错记录与服务恢复）。</p>
-      <button class="btn btn-ghost" data-todo="服务管理：阶段 3 实现">查看计划</button>
+    <div class="rt-head">
+      <div class="rt-title">服务管理</div>
+      <button class="btn btn-ghost btn-tiny" id="btn-svc-refresh">刷新</button>
+    </div>
+
+    <!-- 两个服务的当前状态 -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">① 模型服务 <span class="dim mono">127.0.0.1:8080</span></div>
+        <div id="svc-model-status"><div class="hint">加载中…</div></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary btn-sm" id="btn-model-start">启动模型服务</button>
+          <button class="btn btn-ghost btn-sm" id="btn-model-stop">停止模型服务</button>
+        </div>
+        <p class="hint" style="margin-top:8px">
+          「启动」是<b>幂等</b>的 —— 已经在跑就什么都不做，不会制造中断。<br>
+          这两个按钮<b>只动模型服务</b>，控制层（也就是这个网页）不受影响。
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">② 控制层 <span class="dim mono">0.0.0.0:8000</span></div>
+        <div id="svc-control-status"><div class="hint">加载中…</div></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary btn-sm" id="btn-svc-restart">重启模型服务
+            <span class="dim">（含检测→重启→就绪→验证）</span></button>
+        </div>
+        <p class="hint" style="margin-top:8px">
+          手动走一遍完整流程：停 → 起 → <b>就绪确认</b> → <b>恢复后真发一个请求验证</b>。
+          结果记在下面的事件里。
+        </p>
+      </div>
+    </div>
+
+    <!-- 自动重启开关 -->
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">测试期间自动重启模型服务</div>
+
+      <label class="switch-row">
+        <input type="checkbox" id="svc-watch-enabled">
+        <span>开启 —— 跑测试时若模型服务中途停止，自动把它拉回来</span>
+      </label>
+
+      <div class="notice notice-warn" style="margin-top:10px">
+        <b>⚠️ 这个开关只在「测试运行中」才会动作。</b><br>
+        如果模型服务是在<b>测试开始之前</b>就掉了，系统只会在下面记一条提示，
+        <b>不会</b>去重启它 —— 因为那时候服务掉线很可能是有人正在有意停它、
+        换模型、或者在做别的操作。自动拉起会和那个人打架。
+      </div>
+
+      <div id="svc-watch-will" class="svc-will"></div>
+
+      <div class="grid-3" style="margin-top:12px">
+        <label class="field">
+          <span>探活间隔（秒）</span>
+          <input type="number" id="svc-poll" min="1" max="60" step="1" value="3">
+        </label>
+        <label class="field">
+          <span>连续失败几次算掉线</span>
+          <input type="number" id="svc-fail-threshold" min="1" max="10" step="1" value="2">
+        </label>
+        <label class="field">
+          <span>重启冷却（秒）</span>
+          <input type="number" id="svc-cooldown" min="5" max="600" step="5" value="20">
+        </label>
+        <label class="field">
+          <span>单次测试最多重启几次</span>
+          <input type="number" id="svc-max-restarts" min="1" max="10" step="1" value="2">
+        </label>
+      </div>
+      <p class="hint">
+        「连续失败几次算掉线」是防抖：偶尔一次探测失败不等于服务挂了。<br>
+        「单次测试最多重启几次」是止损：如果起来就挂，说明不是偶发问题，
+        反复重启只会掩盖它 —— 到上限就停下来交给人处理。
+      </p>
+
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-primary btn-sm" id="btn-svc-save">保存设置</button>
+      </div>
+    </div>
+
+    <!-- 事件时间线 -->
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">服务事件时间线</div>
+      <p class="hint">
+        每次掉线、每次重启、每次"只提示不动作"，都记在这里。
+        对应题目要求的「异常时间 / 恢复时间 / 受影响请求 / 最终状态」。
+      </p>
+      <div id="svc-events"><div class="hint">加载中…</div></div>
     </div>
   </section>
 </main>

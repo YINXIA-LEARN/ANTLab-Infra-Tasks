@@ -500,6 +500,7 @@ def summarize(records, wall_time_s=None):
         "n_requests": total,
         "n_success": len(ok),
         "n_truncated": len(trunc),
+        "n_service_lost": by_status.get("service_lost", 0),
         "n_failed": by_status.get("failed", 0),
         "n_timeout": by_status.get("timeout", 0),
         "n_cancelled": by_status.get("cancelled", 0),
@@ -508,16 +509,25 @@ def summarize(records, wall_time_s=None):
         "status_breakdown": by_status,
         "success_rate": (len(ok) / total) if total else None,
         "success_rate_note": (
-            "分母 = 本次运行的请求总数（含失败、中断与被截断的）；"
+            "分母 = 本次运行的请求总数（含失败、中断、被截断与被取消的）；"
             "★ 只有自然跑完（finish_reason=stop / 收到 [DONE]）的才算成功；"
             "★ truncated = 输出撞上 max_tokens 被硬截断，输出残缺，"
             "不算成功也不算失败（是配置上限问题，不是服务问题）；"
+            "★ service_lost = 请求过程中【模型服务消失】（崩溃/被杀），"
+            "与 cancelled 不同 —— 后者是我们主动停的；"
             "harness_error 表示测试程序自身的 bug，不是模型问题"),
         "truncated_note": (
             f"本次有 {len(trunc)} 条请求达到 max_tokens 上限被截断。"
             f"这些输出不完整，代码类任务通常无法直接运行 —— "
             f"如需完整输出，请调大配置里的 max_tokens 后重跑。"
             if trunc else "本次没有请求达到 max_tokens 上限。"),
+        "service_lost_note": (
+            f"⚠️ 本次有 {by_status.get('service_lost', 0)} 条请求在过程中"
+            f"遇到【模型服务消失】（探测 /health 不可达）。"
+            f"这些请求的数据只反映『服务退出前』的状态，"
+            f"整轮结果不完整，不能与其他配置直接对比。"
+            if by_status.get("service_lost") else
+            "本次运行期间模型服务全程可达。"),
 
         "ttft_ms": {
             "n": len(ok_with_ttft),
@@ -1089,7 +1099,7 @@ def answers_to_config(answers, base):
 
 
 def run_one_wave(wave_tasks, cache, cfg, client_id, results, on_flush=None,
-                 sink=None):
+                 sink=None, stop_event=None):
     """
     并发发出一个 wave 的所有请求，等全部完成。
 
@@ -1109,6 +1119,15 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results, on_flush=None,
        那一行永远写不到，整个运行目录里一条请求记录都没有。
        现在边跑边写，随时停数据都在。
 
+    ── stop_event：被停止时让在飞的请求收尾 ────────────────────────────
+    ⚠️ 为什么需要它（这是"被停止掐断的那几条没有记录"的修法）：
+       早先停止是 killpg(SIGTERM)，进程立刻死 —— 工作线程还阻塞在
+       socket 读上，它们手里那几条请求【永远回不来】。
+       结果：记录里只有跑完的，看不出是哪几条被掐断了。
+       现在控制层优先发 SIGINT，测试程序接住后 set 这个事件，
+       工作线程在下一次读块时发现它，把当前请求记成 cancelled
+       （保留已生成的部分），然后照常落盘。
+
     ⚠️ 回调里不能抛异常 —— 落盘失败不该让测试崩掉。
     """
     q = queue.Queue()
@@ -1125,9 +1144,21 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results, on_flush=None,
                 return
             info = cache[tid]
 
-            # client.run_one 仍支持 cancel_event（取消能力保留在 client.py），
-            # 但正式跑测试时不传 —— 只有代码里显式需要取消时才用。
-            cancel_ev = None
+            # 已经收到停止信号 → 这一条还没发出去，不该发。
+            #
+            # ⚠️ 但【必须先落盘再 return】：这条记录的"前一条"可能是
+            #    wave 里最后完成的那一条，它的 on_flush 已经写过一次；
+            #    而如果整个 wave 都是"一进来就发现停止"（停止正好发生在
+            #    wave 边界），那就一条都没写过 —— 运行目录里 requests.jsonl
+            #    会停在上一轮的内容上，甚至被清成 0 字节。
+            #    我踩过：日志说"累计 20"，而文件里 0 行。
+            if stop_event is not None and stop_event.is_set():
+                if on_flush is not None:
+                    try:
+                        on_flush()
+                    except Exception:                         # noqa: BLE001
+                        pass
+                return
 
             try:
                 r = client.run_one(
@@ -1136,7 +1167,12 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results, on_flush=None,
                     temperature=cfg["temperature"],
                     timeout=timeout,
                     client_id=f"{client_id}-w{worker_idx}",
-                    cancel_event=cancel_ev,
+                    # ⭐ 停止信号直接当作"取消"传进去：
+                    #    被 set 时 client 立刻收尾，把这条记成 cancelled
+                    #    （保留已生成的部分），而不是让它凭空消失。
+                    cancel_event=stop_event,
+                    cancel_reason=("测试被停止，该请求在生成中途被中断"
+                                   "（已生成的部分仍保留在记录里）"),
                 )
             except Exception as e:                            # noqa: BLE001
                 # ⚠️ 不能把这里的异常当成"请求失败"记下来 —— 那会把
@@ -1153,15 +1189,21 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results, on_flush=None,
                 r["error_traceback"] = traceback.format_exc()
                 r["client_id"] = f"{client_id}-w{worker_idx}"
             finally:
-                if cancel_ev is not None:
-                    cancel_ev.set()       # 保证定时线程不会悬着
+                pass          # cancel_ev 已不再使用（停止信号由 stop_event 承担）
             r["task_id"] = tid
             tag_run_instance(r)           # ⭐ 标明这条请求是哪个服务实例处理的
             results.append(r)
             # ⭐ 同时进全局列表 —— 落盘与"已记 N 条"都靠它。
             #    不能只在档位结束时才 extend（那样中途停止仍然什么都存不到）。
+            #
+            #  ⚠️⚠️ 这里存进 sink 的必须是【dict】，不能是 RequestResult 本身。
+            #     我踩过：sink 直接 append(r)（RequestResult），而最后落盘那句
+            #     json.dumps(r) 只认 dict —— 于是停止时抛
+            #     "Object of type RequestResult is not JSON serializable"，
+            #     把 requests.jsonl 截成了 0 字节，已经跑完的 20 条全丢。
+            #     to_dict() 才是对的（RequestResult 是包装类，不是 dict 子类）。
             if sink is not None:
-                sink.append(r)
+                sink.append(r.to_dict() if hasattr(r, "to_dict") else dict(r))
 
             # ⭐ 每完成一条就落盘一次 —— 这样测试被中途停掉时，
             #    已经跑完的请求仍然留在 requests.jsonl 里。
@@ -1780,6 +1822,109 @@ def main():
     log(f"配置：{args.config}")
     log("=" * 72)
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  ⭐ 尽早装停止信号处理器
+    #
+    #  为什么放在这里而不是"正式测试"那一段：
+    #    组装输入可能要十几秒（要加载 tokenizer 数所有任务的 token）。
+    #    如果用户在那一阶段点停止，处理器还没装 —— 进程被 SIGINT 打死，
+    #    运行目录里只有 meta.json，界面显示"什么都没有"。
+    #    装在这里之后，那个阶段被停也能留下 run-state.json。
+    #
+    #  ⚠️ 两个事件的作用见下面"正式测试"处的说明。
+    # ══════════════════════════════════════════════════════════════════════
+    stop_event = threading.Event()   # set 后：在飞的请求下一次读块就收尾成 cancelled
+    sig_event = threading.Event()    # set 后：主循环在安全点退出并落盘
+    # ⚠️ 记下"是哪个信号让它停的"。为什么需要：
+    #    走 SIGINT 正常收尾时，最后写 run-state.json 的是主循环里的
+    #    _write_status（不是我这里），如果不把这个信息传过去，
+    #    落盘的状态里就没有 aborted_by —— 事后看不出是人为停止还是被杀。
+    #    （这一条是 test_10_midstop 抓出来的）
+    sig_info = {"signum": None}
+
+    def _sigint_handler(signum, _frame):
+        """
+        SIGINT（控制层优先发的就是它）：从容收尾。
+
+        ⚠️ 这是"被停止截断的请求也要有记录"的关键路径：
+           set stop_event 后，工作在飞的请求下一次读块就会发现，
+           把当前这条记成 cancelled（保留已生成的部分）；
+           等它们收尾完，sig_event 让主循环退出并落盘。
+        """
+        if stop_event.is_set():
+            return
+        stop_event.set()
+        sig_info["signum"] = signum
+        log("")
+        log("⚠️ 收到停止信号 —— 正在让在飞的请求收尾"
+            "（它们会记为 cancelled，保留已生成的部分）…")
+        # 等工作线程把手里的请求收尾并落盘（最多 10 秒）
+        for _ in range(100):
+            alive = [t for t in threading.enumerate()
+                     if t.name.startswith("Thread-") and t.is_alive()]
+            if not alive:
+                break
+            time.sleep(0.1)
+        log("   收尾完成，开始落盘并退出")
+        sig_event.set()
+
+    def _sigterm_handler(signum, _frame):
+        """
+        SIGTERM：没法让线程收尾（Python 默认直接终止）。
+
+        ⚠️ 这里【不能】直接退出：那样 all_records 里的记录写不出去。
+           所以只做两件事 —— 记下状态、让主循环退出；
+           真正的落盘交给主循环的收尾逻辑（它会写 requests.jsonl
+           和一份标注 aborted 的 summary.json）。
+        """
+        if stop_event.is_set():
+            return
+        stop_event.set()          # 在飞请求也会尽快收尾（若来得及）
+        sig_info["signum"] = signum
+        try:
+            _write_status_early("aborted", {
+                "aborted_by": f"信号 {signum}（SIGTERM）",
+                "aborted_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            })
+        except Exception:                                     # noqa: BLE001
+            pass
+        log("")
+        log("⚠️ 收到 SIGTERM —— 立即收尾并把已完成的记录落盘")
+        sig_event.set()
+
+    def _write_status_early(state, extra=None):
+        """
+        早期版本的 run-state 写入（此时 all_records / meta 可能还不存在）。
+
+        ⚠️ 为什么单独写一个：正式那版闭包引用了 all_records 等变量，
+           而信号处理器在那些变量定义之前就装上了。
+           分两个版本，各自只依赖已经存在的东西。
+        """
+        try:
+            d = {
+                "run_id": run_id,
+                "label": label,
+                "state": state,
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "planned_concurrency": cfg.get("concurrency"),
+                "planned_rounds": cfg.get("rounds"),
+            }
+            if extra:
+                d.update(extra)
+            (out / "run-state.json").write_text(
+                json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+    for _sig, _h in ((signal.SIGINT, _sigint_handler),
+                     (signal.SIGTERM, _sigterm_handler)):
+        try:
+            signal.signal(_sig, _h)
+        except (ValueError, OSError):
+            pass
+    _write_status_early("running")
+
     # ── 保存配置快照（复现的关键）────────────────────────────────────────
     (out / "run-config.json").write_text(
         json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1925,6 +2070,22 @@ def main():
     all_records = []
     summaries = {}
 
+    # ⭐ 停止信号用的两个事件 ─────────────────────────────────────────
+    #
+    #   ⚠️ 必须在这里（信号处理器注册之前）定义 ——
+    #      早先我把它放在下面，结果处理器闭包引用了还没赋值的变量。
+    #
+    #   stop_event：被 set 时，【在飞的请求】下一次读块就收尾，
+    #               记成 status=cancelled（保留已生成的部分）。
+    #   sig_event ：被 set 时，主循环在下一个 wave 边界退出。
+    #
+    #  为什么要两个而不是一个：
+    #    工作线程与主线程的响应时机不同 —— 工作线程只能在"读下一块"
+    #    的时候发现停止；主线程要等当前 wave 结束才能安全收尾。
+    #    一个事件同时干两件事会导致"主线程提前退出、工作线程还在跑"。
+    stop_event = threading.Event()
+    sig_event = threading.Event()
+
     # ⭐ 增量落盘：每完成一个请求就重写 requests.jsonl。
     #
     #  为什么（这是"中途被停的测试什么都没有"的根因）：
@@ -1989,62 +2150,9 @@ def main():
     log("已启用增量落盘：每完成一个请求就写一次 requests.jsonl"
         "（这样中途停止也能看到已跑完的部分）")
 
-    # ⭐ 被"停止测试"（SIGTERM）时，不要什么都不留。
-    #
-    #  网页上的停止走 bench_runner.stop() → killpg(SIGTERM)。
-    #  默认行为是进程立刻消失，于是：
-    #    · summary.json 没有
-    #    · 界面只能显示"该运行没有 summary.json"
-    #    · 人不知道"跑了多少、停在哪"
-    #  装个 handler 之后，能落一份【未完成】的汇总：
-    #  已跑完的请求照常统计，并明确标注 state=aborted。
-    #
-    #  ⚠️ handler 里只做落盘，不做统计的复杂计算 ——
-    #     统计放在 _finalize_aborted 里，用已有的 summarize()。
-    def _on_signal(signum, _frame):
-        try:
-            _write_status("aborted", {
-                "aborted_by": (f"信号 {signum}"
-                               f"（{'SIGTERM' if signum == 15 else signum}）"),
-                "aborted_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            })
-            if all_records:
-                # 已完成的请求照常汇总 —— 有数据就比没有强
-                recs = [r.to_dict() if hasattr(r, "to_dict") else dict(r)
-                        for r in all_records]
-                wall = sum(s.get("wall_time_s") or 0
-                           for s in summaries.values()) or None
-                final = {
-                    "run_id": run_id,
-                    "label": label,
-                    "state": "aborted",
-                    "aborted_note": (
-                        f"⚠️ 这次运行被中途停止（信号 {signum}）。"
-                        f"下面只统计【停止前已完成】的 "
-                        f"{len(recs)} 条请求，不是完整结果，"
-                        f"不要当作正式测量数据使用。"),
-                    "n_requests_planned": (len(cfg["task_ids"]) * cfg["rounds"]
-                                           * len(cfg["concurrency"])),
-                    "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                    "formal": summaries,
-                    "overall": summarize(recs, wall_time_s=wall),
-                    "cold_start": cold_start,
-                    "warmup": warmup_records,
-                }
-                (out / "summary.json").write_text(
-                    json.dumps(final, ensure_ascii=False, indent=2),
-                    encoding="utf-8")
-        except Exception:                                     # noqa: BLE001
-            pass
-        # 恢复默认行为并重新发一次信号，让退出码如实反映"被信号终止"
-        signal.signal(signum, signal.SIG_DFL)
-        os.kill(os.getpid(), signum)
-
-    for _sig in (signal.SIGTERM, signal.SIGINT):
-        try:
-            signal.signal(_sig, _on_signal)
-        except (ValueError, OSError):
-            pass
+    # ⚠️ 停止信号的处理器已经在 main() 开头装好了（那时还没有 all_records，
+    #    所以它用的是 _write_status_early）。这里不再重复装 ——
+    #    重复装会把前面那个覆盖掉，而那个才能覆盖"组装输入阶段被停"的情况。
 
     for conc in cfg["concurrency"]:
         waves = build_plan(cfg["task_ids"], cfg["rounds"], conc,
@@ -2061,8 +2169,15 @@ def main():
             # 把当前档位传进去，这样中途停止时记录上也有 concurrency
             run_one_wave(wave, cache, cfg, f"c{conc}-w{wi}", results,
                          on_flush=lambda c=conc: _flush_records(c),
-                         sink=all_records)
+                         sink=all_records, stop_event=stop_event)
             log(f"  wave {wi + 1}/{len(waves)} 完成（累计 {len(results)}）")
+
+            # ⭐ 收到停止信号 → 先把这一档已完成的记录落盘，然后收尾退出。
+            #    这里退出是【正常路径】（不是被信号打死），所以能走完
+            #    summary.json 的写入逻辑 —— 只是标注成未完成。
+            if sig_event.is_set():
+                log("  ⚠️ 收到停止信号，停止后续 wave")
+                break
         wall = time.perf_counter() - t_start
 
         sampler.stop()
@@ -2074,11 +2189,14 @@ def main():
             r["phase"] = "formal"
         # ⚠️ all_records 里已经有这批了（run_one_wave 的 sink 随完成随追加），
         #    所以这里【不能】再 extend 一次，否则记录会翻倍。
-        #    这里只把 concurrency / phase 回填到 all_records 的对象上。
-        #    （all_records 里存的是 RequestResult，回填走 __setitem__）
-        for r in results:
-            r["concurrency"] = conc
-            r["phase"] = "formal"
+        #    但两边的对象不是同一个（sink 存的是 to_dict 的副本），
+        #    所以 concurrency / phase 要往 all_records 里的那份也回填一次，
+        #    否则增量写出来的记录缺这两个字段。
+        for r in all_records:
+            if r.get("concurrency") is None:
+                r["concurrency"] = conc
+            if not r.get("phase"):
+                r["phase"] = "formal"
         _flush_records(conc)          # 每档结束再补写一次（含回填的字段）
 
         # ⭐ 把墙钟时间传给 summarize —— 吞吐窗口必须用它，不能用逐请求相对时间推
@@ -2119,9 +2237,12 @@ def main():
     #    这正是"把 length 放进错误记录"的落点：截断不是成功，
     #    而且它是最容易被忽略的一类 —— 状态看着像正常结束，
     #    实际输出是残缺的。放在这里，跑完一轮就能一眼看到有几条。
-    #    排序：截断排最前（它最容易被误认为成功）。
-    _order = {"truncated": 0, "incomplete": 1, "failed": 2,
-              "timeout": 3, "cancelled": 4, "harness_error": 5}
+    #    排序：截断最前（最容易被误认为成功），然后依次是
+    #    服务消失 → 中断 → 失败 → 超时 → 取消 → 程序错误。
+    #    这个顺序也是"排查优先级"：越靠前越可能是环境/配置问题，
+    #    越靠后越可能是使用方式问题（主动取消）。
+    _order = {"truncated": 0, "service_lost": 1, "incomplete": 2,
+              "failed": 3, "timeout": 4, "cancelled": 5, "harness_error": 6}
     bad = sorted((r for r in all_records if r["status"] != "success"),
                  key=lambda r: _order.get(r["status"], 9))
     (out / "errors.json").write_text(
@@ -2148,6 +2269,35 @@ def main():
             **instance_summary(),
         },
     }
+
+    # ⭐ 如果这次是被停止的，明确标注 —— 不能让"跑一半的数据"看起来像完整结果
+    #
+    #  为什么放在这里而不是信号处理器里：
+    #    走正常收尾路径才能保证 requests.jsonl / errors.json / summary.json
+    #    三份文件互相自洽。信号处理器只负责"让主循环退出"，
+    #    落盘统一在这里做。
+    n_planned = len(cfg["task_ids"]) * cfg["rounds"] * len(cfg["concurrency"])
+    if sig_event.is_set() or n_planned != len(all_records):
+        final["state"] = "aborted"
+        final["n_requests_planned"] = n_planned
+        final["n_requests_recorded"] = len(all_records)
+        cancelled = [r for r in all_records if r["status"] == "cancelled"]
+        final["aborted_note"] = (
+            f"⚠️ 这次运行被中途停止。计划 {n_planned} 个请求，"
+            f"实际只发出并记录了 {len(all_records)} 条"
+            + (f"（其中 {len(cancelled)} 条在生成中途被中断，"
+               f"状态记为 cancelled，已生成的部分仍保留）"
+               if cancelled else "")
+            + "。下面只统计这些已完成/已中断的请求，"
+              "不是完整结果，不要当作正式测量数据使用。")
+        log("")
+        log(f"⚠️ 本次运行未跑完（{len(all_records)}/{n_planned} 条），"
+            f"summary.json 已标注 state=aborted")
+        if cancelled:
+            log(f"   其中 {len(cancelled)} 条在生成中途被停止信号中断，"
+                f"记为 cancelled")
+    else:
+        final["state"] = "finished"
 
     # ── 跨服务实例的分段统计 ──────────────────────────────────────────
     #
@@ -2192,10 +2342,29 @@ def main():
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # ── 更新登记表（方便前端列出与自动配对对比）────────────────────────
-    # ⭐ 先标成"正常跑完" —— 界面靠这个区分"完整"与"中途被停"
-    _write_status("finished", {
-        "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-    })
+    # ⭐ 状态按实际结果写：
+    #    正常跑完 → finished；被停止 → aborted（并把是哪个信号记下来，
+    #    否则事后看不出"人为停止"和"被杀"的区别）
+    if final.get("state") == "aborted":
+        _sn = sig_info.get("signum")
+        if _sn == 2:
+            _why = "信号 2（SIGINT，测试被停止）"
+        elif _sn == 15:
+            _why = "信号 15（SIGTERM，测试被强制停止）"
+        elif _sn:
+            _why = f"信号 {_sn}"
+        else:
+            _why = "未跑完（未收到停止信号，可能是请求数不足）"
+        _write_status("aborted", {
+            "aborted_by": _why,
+            "aborted_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "n_records_so_far": len(all_records),
+        })
+    else:
+        _write_status("finished", {
+            "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "n_records_so_far": len(all_records),
+        })
     rec = make_registry_record(run_id, label, cfg, meta, summaries,
                                final["overall"], out, duration_s)
     if update_runs_registry(out_root, rec):

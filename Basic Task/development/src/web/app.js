@@ -541,6 +541,9 @@ function fmtStatus(status) {
     // ⭐ truncated（输出撞上 max_tokens 被截断）单独一类：
     //   它技术上跑完了，但输出残缺 —— 不算成功，也不算失败
     truncated: ['✂️', '截断'],
+    // ⭐ service_lost（模型服务在请求过程中消失）——
+    //   与 cancelled 的区别：这个不是我们停的，是服务自己没了
+    service_lost: ['💀', '服务消失'],
     failed: ['❌', '失败'], timeout: ['⏰', '超时'],
     incomplete: ['⚠️', '中断'],
     cancelled: ['⏹', '取消'], harness_error: ['🐞', '程序错误'],
@@ -1000,8 +1003,10 @@ async function renderErrorsTab() {
         <div class="rt-note">
           状态分类：<b>成功</b>（自然跑完）／<b>✂️ 截断</b>（输出撞上 max_tokens 上限，
           输出残缺 —— <b>不算成功也不算失败</b>，是配置上限问题）／
-          <b>中断</b>（流在结束标记前断开）／<b>失败</b>（HTTP 错误）／<b>超时</b>／
-          <b>程序错误</b>（测试程序自身 bug）。
+          <b>💀 服务消失</b>（请求过程中模型服务崩溃或被停止 ——
+          与"取消"不同：<b>那个是我们主动停的</b>）／
+          <b>中断</b>（流在结束标记前断开，但服务仍可达）／<b>失败</b>（HTTP 错误）／
+          <b>超时</b>／<b>程序错误</b>（测试程序自身 bug）。
           只有第一类计入成功率与延迟统计。
         </div>`;
       return;
@@ -1750,6 +1755,9 @@ function initTabs() {
       document.querySelectorAll('.panel').forEach(p =>
         p.classList.toggle('active', p.id === 'panel-' + name));
       try { localStorage.setItem('antlab.tab', name); } catch (_) {}
+      // ⭐ 切到服务页时刷新一次 —— 服务状态是随时间变的，
+      //    不刷新就会显示进页面那一刻的旧数据。
+      if (name === 'service') svcRefresh();
     });
   });
   let saved = null;
@@ -1758,6 +1766,255 @@ function initTabs() {
     const btn = document.querySelector(`.tab[data-tab="${saved}"]`);
     if (btn) btn.click();
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   服务页
+   ══════════════════════════════════════════════════════════════════════════ */
+
+let svcTimer = null;
+
+/* 一小段 fetch 包装，服务页那几个接口都用它。
+   ⚠️ 这个项目里原来没有统一的请求辅助函数（各处直接 fetch + r.json()），
+      服务页要调 4~5 个接口，逐个写会让错误处理重复五遍。
+      所以这里加一个局部的 —— 服务页专用，不去动别处的既有写法。
+   ⚠️ 后端返回 {error, message} 时抛异常，让调用方统一 catch。 */
+async function api(path, opts = {}) {
+  const init = { cache: 'no-store', method: opts.method || 'GET' };
+  if (opts.body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(opts.body);
+  }
+  const r = await fetch(path, init);
+  let j;
+  try {
+    j = await r.json();
+  } catch (_) {
+    throw new Error(`HTTP ${r.status}（响应不是 JSON）`);
+  }
+  if (j && j.error) throw new Error(j.message || j.error);
+  if (!r.ok && !(j && j.ok)) {
+    throw new Error(j && j.message ? j.message : `HTTP ${r.status}`);
+  }
+  return j;
+}
+
+async function svcRefresh() {
+  try {
+    const st = await api('/api/status');
+    svcRenderStatus(st);
+  } catch (e) {
+    const el = $('svc-model-status');
+    if (el) el.innerHTML = `<div class="notice notice-err">读服务状态失败：${esc(e.message)}</div>`;
+  }
+  try {
+    const w = await api('/api/service/watch');
+    svcRenderWatch(w);
+  } catch (e) {
+    const el = $('svc-events');
+    if (el) el.innerHTML = `<div class="notice notice-err">读监测状态失败：${esc(e.message)}</div>`;
+  }
+}
+
+function svcRenderStatus(st) {
+  const m = st.model_server || {};
+  const ok = m.reachable === true;
+  const el = $('svc-model-status');
+  if (el) {
+    el.innerHTML = `
+      <div class="kv"><span>状态</span><b class="${ok ? 'ok-txt' : 'err-txt'}">
+        ${ok ? '🟢 运行中' : '🔴 未运行'}</b></div>
+      <div class="kv"><span>健康判定</span><span class="mono">${esc(m.health || '—')}</span></div>
+      <div class="kv"><span>说明</span><span>${esc(m.health_detail || '—')}</span></div>
+      <div class="kv"><span>模型</span><span class="mono">${esc(m.model_name || '—')}</span></div>
+      <div class="kv"><span>量化</span><span class="mono">${esc(m.quant || '—')}</span></div>
+      <div class="kv"><span>上下文</span><span class="mono">${esc(m.n_ctx ?? '—')} token</span></div>
+      <div class="kv"><span>slot 数</span><span class="mono">${esc(m.total_slots ?? '—')}</span></div>
+      ${m.build_info ? `<div class="kv"><span>构建</span><span class="mono">${esc(m.build_info)}</span></div>` : ''}
+    `;
+  }
+  const c = $('svc-control-status');
+  if (c) {
+    c.innerHTML = `
+      <div class="kv"><span>状态</span><b class="ok-txt">🟢 运行中</b></div>
+      <div class="kv"><span>版本</span><span class="mono">${esc(st.version || '—')}</span></div>
+      <div class="kv"><span>说明</span><span>这一页就是它提供的 —— 它停了这页也打不开</span></div>
+      <div class="kv"><span>下游</span><span class="mono">${esc(m.base_url || 'http://127.0.0.1:8080')}</span></div>
+    `;
+  }
+  // 模型服务没跑时，把"启动"按钮突出一点
+  const bs = $('btn-model-start'), bp = $('btn-model-stop');
+  if (bs) bs.classList.toggle('btn-primary', !ok);
+  if (bs) bs.classList.toggle('btn-ghost', ok);
+  if (bp) bp.classList.toggle('btn-ghost', !ok);
+}
+
+function svcRenderWatch(w) {
+  const en = $('svc-watch-enabled');
+  if (en) en.checked = !!w.enabled;
+  const setv = (id, v) => { const e = $(id); if (e && document.activeElement !== e) e.value = v; };
+  setv('svc-poll', w.poll_interval_s);
+  setv('svc-fail-threshold', w.fail_threshold);
+  setv('svc-cooldown', w.cooldown_s);
+  setv('svc-max-restarts', w.max_restarts_per_run);
+
+  const will = $('svc-watch-will');
+  if (will) {
+    if (!w.watching) {
+      will.className = 'svc-will svc-will-err';
+      will.innerHTML = '⚠️ 后台监测线程没在跑（异常）—— 开关不起作用';
+    } else if (!w.enabled) {
+      will.className = 'svc-will svc-will-off';
+      will.innerHTML = '⚪ 自动重启：<b>关</b> —— 模型服务掉了不会有任何动作，'
+        + '只会在下面记一条事件。';
+    } else if (w.test_running) {
+      will.className = 'svc-will svc-will-on';
+      will.innerHTML = `🟢 自动重启：<b>开</b>，且<b>现在有测试在跑</b>`
+        + `（${esc(w.test_label || '')}）—— <b>当前会动作</b>。`
+        + `本次测试已重启 ${w.restarts_this_run} / ${w.max_restarts_per_run} 次。`;
+    } else if (w.in_grace) {
+      will.className = 'svc-will svc-will-idle';
+      will.innerHTML = '🟡 自动重启：<b>开</b>，测试刚结束'
+        + `（${esc(w.grace_label || '')}），还在<b>宽限期内</b>`
+        + `（还剩 ${fmtNum(w.grace_left_s)} 秒）—— <b>当前仍会动作</b>。<br>`
+        + '<span class="dim">这段宽限期是必要的：服务在测试中途挂掉时，'
+        + '剩下的请求会很快集体失败、测试提前退出，'
+        + '等监测器探活时已经"没有测试在跑"了。有了它才不会错过。</span>';
+    } else {
+      will.className = 'svc-will svc-will-idle';
+      will.innerHTML = '🟡 自动重启：<b>开</b>，但<b>现在没有测试在跑</b>'
+        + '（也不在刚跑完的宽限期内）—— 所以此刻<b>不会动作</b>，只会提示。'
+        + '等测试开始后才生效。';
+    }
+  }
+
+  const ev = $('svc-events');
+  if (!ev) return;
+  const list = w.recent_events || [];
+  if (!list.length) {
+    ev.innerHTML = '<div class="hint" style="padding:10px">'
+      + '还没有任何事件。启动一次测试、或点上面的「重启模型服务」就会出现记录。</div>';
+    return;
+  }
+  const kindMap = {
+    restart: ['🔧', '执行重启'],
+    restart_skipped: ['⏭', '跳过重启'],
+    noticed_only: ['👀', '只提示未动作'],
+    give_up: ['🛑', '放弃重启'],
+  };
+  ev.innerHTML = '<div class="svc-timeline">' + list.slice().reverse().map(e => {
+    const [icon, label] = kindMap[e.kind] || ['•', e.kind || '事件'];
+    const okCls = e.kind === 'restart'
+      ? (e.ok ? 'ok-txt' : 'err-txt') : 'dim';
+    const steps = (e.steps || []).map(s =>
+      `<div class="svc-step ${s.ok ? 'ok' : 'bad'}">
+         ${s.ok ? '✅' : '❌'} ${esc(s.step)}
+         ${s.ms ? `<span class="dim">${fmtNum(s.ms)} ms</span>` : ''}
+         ${s.detail ? `<span class="dim mono">${esc(typeof s.detail === 'string'
+              ? s.detail : JSON.stringify(s.detail))}</span>` : ''}
+         ${s.error ? `<span class="err-txt">${esc(s.error)}</span>` : ''}
+       </div>`).join('');
+    return `<div class="svc-ev">
+      <div class="svc-ev-head">
+        <span class="svc-ev-icon">${icon}</span>
+        <b class="${okCls}">${esc(label)}</b>
+        <span class="dim mono">${esc(e.t || '')}</span>
+        ${e.test_run ? `<span class="tag">测试 ${esc(e.test_run)}</span>` : ''}
+        ${e.ms ? `<span class="dim">耗时 ${fmtNum(e.ms)} ms</span>` : ''}
+      </div>
+      <div class="svc-ev-body">${esc(e.reason || '')}</div>
+      ${e.why_no_action ? `<div class="svc-ev-why">${esc(e.why_no_action)}</div>` : ''}
+      ${e.error ? `<div class="svc-ev-err">${esc(e.error)}</div>` : ''}
+      ${steps}
+    </div>`;
+  }).join('') + '</div>';
+}
+
+async function initService() {
+  $('btn-svc-refresh')?.addEventListener('click', svcRefresh);
+
+  $('btn-model-start')?.addEventListener('click', async () => {
+    const b = $('btn-model-start');
+    b.disabled = true; b.textContent = '启动中…';
+    try {
+      const r = await api('/api/service/model/start', { method: 'POST', body: {} });
+      toast('✅ ' + (r.message || '已启动'));
+    } catch (e) {
+      toast('❌ ' + e.message);
+    } finally {
+      b.disabled = false; b.textContent = '启动模型服务';
+      svcRefresh();
+    }
+  });
+
+  $('btn-model-stop')?.addEventListener('click', async () => {
+    if (!confirm('停止模型服务？\n\n控制层（这个网页）不受影响，但推理和测试都会不可用，'
+      + '直到你重新启动它。')) return;
+    const b = $('btn-model-stop');
+    b.disabled = true; b.textContent = '停止中…';
+    try {
+      const r = await api('/api/service/model/stop', { method: 'POST', body: {} });
+      toast('✅ ' + (r.message || '已停止'));
+    } catch (e) {
+      toast('❌ ' + e.message);
+    } finally {
+      b.disabled = false; b.textContent = '停止模型服务';
+      svcRefresh();
+    }
+  });
+
+  $('btn-svc-restart')?.addEventListener('click', async () => {
+    if (!confirm('重启模型服务？\n\n会有约 3~10 秒不可用，期间推理请求会失败。')) return;
+    const b = $('btn-svc-restart');
+    b.disabled = true; b.textContent = '重启中…（可能要 10~90 秒）';
+    try {
+      const r = await api('/api/service/restart', { method: 'POST', body: {} });
+      const ev = r.event || {};
+      toast(ev.ok ? '✅ 重启完成且恢复后验证通过'
+        : '⚠️ 重启流程未全部成功：' + (ev.error || '见事件时间线'));
+    } catch (e) {
+      toast('❌ ' + e.message);
+    } finally {
+      b.disabled = false;
+      b.innerHTML = '重启模型服务 <span class="dim">（含检测→重启→就绪→验证）</span>';
+      svcRefresh();
+    }
+  });
+
+  $('btn-svc-save')?.addEventListener('click', async () => {
+    const g = (id) => { const e = $(id); return e ? e.value : null; };
+    const body = {
+      enabled: $('svc-watch-enabled')?.checked === true,
+      poll_interval_s: Number(g('svc-poll')),
+      fail_threshold: Number(g('svc-fail-threshold')),
+      cooldown_s: Number(g('svc-cooldown')),
+      max_restarts_per_run: Number(g('svc-max-restarts')),
+    };
+    try {
+      await api('/api/service/watch', { method: 'POST', body });
+      toast(body.enabled
+        ? '✅ 已开启 —— 只在测试运行中才会自动重启'
+        : '✅ 已关闭 —— 服务掉线只提示，不动作');
+    } catch (e) {
+      toast('❌ ' + e.message);
+    }
+    svcRefresh();
+  });
+
+  // 开关一拨就提示"当前会不会动作"，但要点保存才生效 ——
+  // 避免误触就改了服务行为
+  $('svc-watch-enabled')?.addEventListener('change', () => {
+    const on = $('svc-watch-enabled').checked;
+    toast(on ? '已勾选 —— 记得点「保存设置」才生效'
+      : '已取消勾选 —— 记得点「保存设置」才生效');
+  });
+
+  // 停在服务页时每 5 秒自动刷新一下状态
+  if (svcTimer) clearInterval(svcTimer);
+  svcTimer = setInterval(() => {
+    const p = $('panel-service');
+    if (p && p.classList.contains('active')) svcRefresh();
+  }, 5000);
 }
 
 /* ── 预留元素 ─────────────────────────────────────────────────────────── */
@@ -2075,6 +2332,7 @@ function boot() {
   initFilesAndBudget();   // ⭐ A：文件选择 + token 预算
   initResults();          // ⭐ R：测试结果浏览
   initBench();            // ⭐ S4：测试页（从网页启动测试）
+  initService();          // ⭐ 服务页：启停模型服务 + 测试期间自动重启
   initChat();
 
   refreshStatus();

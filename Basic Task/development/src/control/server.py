@@ -35,6 +35,7 @@ from . import chat as chat_mod
 from . import files as files_mod
 from . import model_manager
 from . import models_config
+from . import service_watch
 from . import tokenizer
 from .logutil import log
 
@@ -50,9 +51,11 @@ except ImportError:                                       # pragma: no cover
 # 测试页的接口（/api/bench/form /run /status /stop /cleanup /leftovers）
 # 已经实现，不在这个清单里。
 #
-# ⚠️ 这里原来是 {"/api/recovery/restart": (3, "...")}（S3 阶段的计划项）。
-#    服务恢复功能已整体移除，所以这条也删了 —— 见 do_GET 里
-#    /api/recovery/ 分支的说明。
+# ⚠️ 历史：这里原来有 {"/api/recovery/restart": (3, "...")}，
+#    后来服务恢复功能被整体移除，那条也删了。
+#    现在它回来了，但换了实现方式（见 /api/service/* 那几个端点）：
+#    加了一道"只在测试运行中才自动动作"的总闸，
+#    具体理由写在 service_watch.py 的文件头。
 PLANNED_ENDPOINTS = {}
 
 
@@ -334,19 +337,37 @@ class Handler(BaseHTTPRequestHandler):
                                       "message": f"{type(e).__name__}: {e}"})
             return
 
-        # ── 服务恢复功能已移除 ────────────────────────────────────────
-        #  ⚠️ 移除原因（实测结论）：
-        #     我加的"后台监测 + 自动重启"分不清两种情况：
-        #         ① 服务真的崩了
-        #         ② 有人正在有意重启服务（serve.sh model 就有 3 秒空窗）
-        #     第 ② 种在监测器眼里和崩溃一模一样，于是它每次都去"救"，
-        #     救的过程又制造一次空窗 —— 服务被反复停起。
-        #     表现为：手动测试时服务很稳，一跑我的脚本就频繁掉线。
-        #     这个功能带来的麻烦大于价值，先移除。
-        #     备份在 /tmp/removed_fault_injection/recovery.py。
-        if path.startswith("/api/recovery/"):
-            self._send_json(410, {"error": "gone",
-                                  "message": "服务恢复功能已移除（见提交说明）"})
+        # ══════════════════════════════════════════════════════════════
+        #  服务页：监测状态 / 事件
+        #
+        #  ⚠️ 与之前被移除的那版"自动重启"的区别（这是它现在能用的原因）：
+        #     旧版【任何时候】发现服务掉了就去重启，而它分不清
+        #       · 服务真的崩了
+        #       · 有人正在有意重启它（`serve.sh model` 就有约 3 秒空窗）
+        #     第 ② 种在监测器眼里和崩溃一模一样 → 它每次都去"救"，
+        #     而"救"的过程自己又制造一次空窗 → 服务被反复停起。
+        #
+        #     新版加了一道【总闸】：只在【测试运行中】才允许动作。
+        #     测试没跑时服务掉线只记录、只提示，绝不动手 ——
+        #     因为那多半是有人在故意停它 / 换模型。
+        #     规则写在 service_watch.py 的文件头。
+        # ══════════════════════════════════════════════════════════════
+        if path == "/api/service/watch":
+            try:
+                self._send_json(200, service_watch.status())
+            except Exception as e:                        # noqa: BLE001
+                self._send_json(500, {"error": "watch_status_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
+        if path == "/api/service/events":
+            try:
+                q = parse_qs(urlparse(self.path).query)
+                n = int((q.get("limit") or ["50"])[0] or 50)
+                self._send_json(200, {"events": service_watch.list_events(n)})
+            except Exception as e:                        # noqa: BLE001
+                self._send_json(500, {"error": "events_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
             return
 
         if path == "/api/chat":
@@ -590,12 +611,78 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200 if ok else 409, res)
             return
 
-        # ⚠️ 这里原来有 /api/recovery/config 和 /api/recovery/restart 两个接口，
-        #    随"服务恢复"功能一起移除了（原因见 do_GET 里那段注释）。
-        #    现在它们统一返回 410，见下面的 startswith 分支。
-        if path.startswith("/api/recovery/"):
-            self._send_json(410, {"error": "gone",
-                                  "message": "服务恢复功能已移除"})
+        # ══════════════════════════════════════════════════════════════
+        #  服务页：开关 / 单独启停模型 / 手动重启
+        # ══════════════════════════════════════════════════════════════
+        if path == "/api/service/watch":
+            try:
+                payload = json.loads(body.decode("utf-8")) if body else {}
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                self._send_json(400, {"error": "bad_json",
+                                      "message": f"请求体不是合法 JSON：{e}"})
+                return
+            try:
+                cfg = service_watch.set_config(
+                    enabled=payload.get("enabled"),
+                    poll_interval_s=payload.get("poll_interval_s"),
+                    fail_threshold=payload.get("fail_threshold"),
+                    cooldown_s=payload.get("cooldown_s"),
+                    max_restarts_per_run=payload.get("max_restarts_per_run"),
+                    ready_timeout_s=payload.get("ready_timeout_s"),
+                )
+                log(f"服务页：自动重启开关 → "
+                    f"{'开' if cfg['enabled'] else '关'}")
+                self._send_json(200, {"ok": True, "config": cfg,
+                                      "status": service_watch.status()})
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/service/watch 异常：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "watch_config_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
+        # ── 单独启动模型服务 ──────────────────────────────────────────
+        if path == "/api/service/model/start":
+            try:
+                r = model_manager.start_only()
+                code = 200 if r.get("ok") else 500
+                self._send_json(code, r)
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/service/model/start 异常：{e}\n"
+                    f"{traceback.format_exc()}")
+                self._send_json(500, {"error": "start_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
+        # ── 单独停止模型服务（控制层不受影响）────────────────────────
+        if path == "/api/service/model/stop":
+            try:
+                r = model_manager.stop_only()
+                self._send_json(200 if r.get("ok") else 500, r)
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/service/model/stop 异常：{e}\n"
+                    f"{traceback.format_exc()}")
+                self._send_json(500, {"error": "stop_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
+            return
+
+        # ── 手动触发一次"检测 → 重启 → 就绪确认 → 验证"──────────────
+        #
+        #  ⚠️ 这个接口【不受"只在测试运行中"那道闸限制】——
+        #     因为它就是人明确点了按钮要重启，不存在"误判别人在换模型"
+        #     的问题。那道闸是给【自动】动作用的。
+        if path == "/api/service/restart":
+            try:
+                payload = json.loads(body.decode("utf-8")) if body else {}
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                payload = {}
+            try:
+                ev = service_watch.restart_now(
+                    reason=payload.get("reason") or "用户在服务页手动重启")
+                self._send_json(200 if ev.get("ok") else 500, {"event": ev})
+            except Exception as e:                        # noqa: BLE001
+                log(f"/api/service/restart 异常：{e}\n{traceback.format_exc()}")
+                self._send_json(500, {"error": "restart_failed",
+                                      "message": f"{type(e).__name__}: {e}"})
             return
 
         if path == "/api/bench/cleanup":
@@ -707,14 +794,32 @@ def main():
     else:
         log("⚠️ 本地未找到模型文件（不影响控制层启动，但对话会不可用）")
 
-    # ── 服务监测已移除 ────────────────────────────────────────────────
-    #  曾经这里调用 recovery.init() 启动后台监测（自动重启掉线的服务）。
-    #  移除原因见 do_GET 里 /api/recovery/ 那段注释：
-    #  它分不清"服务真崩了"和"有人正在有意重启服务"，
-    #  导致 serve.sh model 的正常空窗被当成掉线，服务被反复停起。
+    # ══════════════════════════════════════════════════════════════════
+    #  启动服务监测（服务页那个"自动重启"开关的执行体）
     #
-    #  现在改为【不做自动操作】：服务状态照常通过 /api/status 暴露，
-    #  需要重启时由人显式执行 serve.sh model 或前端切换。
+    #  ⚠️ 与上一版被移除的自动重启的区别（这是它现在能安全运行的原因）：
+    #     旧版任何时候发现服务掉了就去重启，而它分不清
+    #       · 服务真的崩了
+    #       · 有人正在有意重启它（`serve.sh model` 有约 3 秒空窗）
+    #     第 ② 种在监测器眼里和崩溃一模一样 → 每次都去"救"，
+    #     而"救"自己又制造空窗 → 服务被反复停起。
+    #
+    #     新版加了总闸：只在【测试运行中】才允许动作。测试没跑时
+    #     服务掉线只记录、只提示，绝不动手（那多半是有人故意停的）。
+    #
+    #  ⚠️ 开关默认【关】—— 这是会真的动进程的操作，不该默认开启。
+    #     监测线程始终在跑（这样界面能看到实时健康状态），
+    #     但开着关时它只观察、不动作。
+    # ══════════════════════════════════════════════════════════════════
+    try:
+        service_watch.init()
+        ws = service_watch.status()
+        log(f"服务监测：已在后台运行（每 {ws['poll_interval_s']} 秒探一次）")
+        log(f"   自动重启开关：{'开' if ws['enabled'] else '关'}"
+            f"   ★ 即使开着，也只在【测试运行中】才会动作")
+    except Exception as e:                                    # noqa: BLE001
+        log(f"⚠️ 启动服务监测失败（不影响控制层）："
+            f"{type(e).__name__}: {e}")
 
     srv = ThreadingHTTPServer((config.CONTROL_HOST, config.CONTROL_PORT), Handler)
     srv.daemon_threads = True

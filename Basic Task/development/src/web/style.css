@@ -424,6 +424,10 @@ pre.output{
    它最危险的地方是【看着像正常结束】，所以必须一眼能看出来。 */
 .st-truncated{color:#fb923c;font-weight:600}
 .st-cancelled{color:#94a3b8}
+/* 服务消失：请求过程中模型服务没了（崩溃/被杀）。
+   与 cancelled 的区别：那个是我们主动停的，这个不是。
+   用醒目红色 + 加粗 —— 它意味着这一轮结果整体不可用。 */
+.st-service_lost{color:#f85149;font-weight:700}
 
 .modal.wide{width:min(1000px,94vw)}
 .req-tools{font-size:11px}
@@ -483,4 +487,80 @@ pre.output{
 
 /* 上下文 / KV 的下拉项说明较长，选中后不要把布局撑破 */
 #bench-model,#bench-template{max-width:100%}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   服务页
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.grid-3{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (max-width:900px){ .grid-2{grid-template-columns:1fr} }
+
+.card{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--bg-2);
+  padding:12px 14px;
+}
+.card-title{
+  font-size:13px;font-weight:600;color:var(--fg);
+  margin-bottom:10px;padding-bottom:8px;
+  border-bottom:1px solid var(--line);
+}
+
+/* 服务状态的键值行（是 div，不是 table.kv —— 那个是表格样式） */
+.kv{display:flex;gap:10px;padding:3px 0;font-size:12px;line-height:1.6}
+.kv>span:first-child{color:var(--fg-dim);flex:0 0 84px}
+.kv>span:last-child,.kv>b{flex:1;word-break:break-all}
+
+.ok-txt{color:var(--ok)}
+.err-txt{color:var(--err)}
+.warn-txt{color:var(--warn)}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-sm{font-size:12px;padding:5px 10px}
+
+.switch-row{
+  display:flex;align-items:flex-start;gap:8px;
+  font-size:13px;line-height:1.6;cursor:pointer;
+}
+.switch-row input{margin-top:3px;flex:0 0 auto}
+
+/* 「当前会不会动作」那一行 —— 这是本页最要紧的一句提示，
+   因为开关是"开着"但"此刻不生效"是最容易误解的状态 */
+.svc-will{
+  margin-top:10px;padding:9px 11px;border-radius:6px;
+  font-size:12px;line-height:1.7;
+  border-left:3px solid var(--line);
+}
+.svc-will-on{border-left-color:var(--ok);background:rgba(63,185,80,.08)}
+.svc-will-off{border-left-color:var(--fg-dim);background:rgba(148,163,184,.07)}
+.svc-will-idle{border-left-color:var(--warn);background:rgba(210,153,34,.08)}
+.svc-will-err{border-left-color:var(--err);background:rgba(248,81,73,.08)}
+
+/* 事件时间线 */
+.svc-timeline{display:flex;flex-direction:column;gap:10px}
+.svc-ev{
+  border-left:2px solid var(--line);
+  padding:6px 0 6px 10px;
+}
+.svc-ev-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.svc-ev-icon{font-size:13px}
+.svc-ev-body{font-size:12px;color:var(--fg-dim);margin-top:3px;line-height:1.6}
+.svc-ev-why{
+  font-size:12px;color:var(--warn);margin-top:4px;line-height:1.6;
+  background:rgba(210,153,34,.07);border-radius:4px;padding:5px 8px;
+}
+.svc-ev-err{font-size:12px;color:var(--err);margin-top:4px;line-height:1.6}
+.svc-step{
+  font-size:11px;padding:2px 0 2px 6px;margin-top:2px;
+  border-left:1px solid var(--line);color:var(--fg-dim);
+  display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;
+}
+.svc-step.bad{color:var(--err)}
+.tag{
+  font-size:10px;padding:1px 6px;border-radius:9px;
+  background:rgba(88,166,255,.15);color:var(--accent);
+}
 

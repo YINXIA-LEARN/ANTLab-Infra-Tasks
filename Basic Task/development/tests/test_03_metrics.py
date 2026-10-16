@@ -158,6 +158,16 @@ def _check_one(rid, rep):
         return [r for r in rows
                 if r.get("concurrency") == conc and r.get("status") == st]
 
+    def _all(conc):
+        """该并发档的全部请求 —— 不筛状态。
+
+        ⚠️ 早先这里是手写枚举几个状态相加，加了新状态（truncated /
+           service_lost）之后就会漏掉，报出"分母不对"的假失败。
+           凡是"全部"就该真的取全部 —— 这也正是这个断言要查的东西：
+           status_breakdown 是否覆盖了每一条记录。
+        """
+        return [r for r in rows if r.get("concurrency") == conc]
+
     for conc_key in sorted(formal, key=lambda x: int(x)):
         conc = int(conc_key)
         f = formal[conc_key]
@@ -166,11 +176,9 @@ def _check_one(rid, rep):
         # 请求数
         rep.check(f"{rid} c{conc}: 成功数 (summary vs 原始记录)",
                   f.get("n_success"), len(sub_ok))
-        # 分母：全部请求（含失败）—— 边界④
+        # 分母：全部请求（含失败/中断/截断/取消/服务消失）—— 边界④
         rep.check(f"{rid} c{conc}: 请求总数分母 = 该并发档全部请求",
-                  f.get("n_requests"), len(_sub(conc)) + len(_sub(conc, "failed"))
-                  + len(_sub(conc, "timeout")) + len(_sub(conc, "incomplete"))
-                  + len(_sub(conc, "cancelled")) + len(_sub(conc, "harness_error")))
+                  f.get("n_requests"), len(_all(conc)))
 
         # ★ 中位数 / P95：用本文件重写的算法复算
         ttfts = [r["ttft_ms"] for r in sub_ok]
@@ -216,10 +224,18 @@ def _check_one(rid, rep):
                     f"{rid} c{conc}: 吞吐 = Σ(output_tokens)/墙钟 可复算",
                     my_tps, tt["output_tokens_per_s"], tol=0.01)
                 # 每请求的墙钟时间（requests_per_s）也复算一遍
+                #
+                # ⚠️ 口径是【全部请求 / 墙钟】，不是"成功请求 / 墙钟"。
+                #    为什么：它衡量的是"这个并发档总共处理了多少个请求"，
+                #    包括被拒绝的（拒绝也是处理）。与 token 吞吐不同 ——
+                #    那里排除失败请求，因为它们没产出 token。
+                #    早先这里的注释写成了"成功请求数"，与复算代码
+                #    （用 n_requests）自相矛盾，是注释的错。
                 if tt.get("requests_per_s") is not None:
                     rep.check_close(
-                        f"{rid} c{conc}: 请求速率 = 成功请求数/墙钟 可复算",
-                        len(sub_ok) / wall, tt["requests_per_s"], tol=0.01)
+                        f"{rid} c{conc}: 请求速率 = 全部请求数/墙钟 可复算",
+                        len(_all(conc)) / wall, tt["requests_per_s"],
+                        tol=0.01)
                 # ★ 边界④：失败请求【不计入】token 分子 ——
                 #    如果分子里混进了失败的请求，这里会对不上
                 rep.check(f"{rid} c{conc}: 吞吐的 failed_counted 标记应为 False",
@@ -239,11 +255,41 @@ def _check_one(rid, rep):
             rep.check(f"{rid} c{conc}: prompt_total = Σ逐请求 prompt_tokens",
                       tk["prompt_total"], sum(r["prompt_tokens"] for r in sub_ok))
         # 成功数 + 各类异常 == 总数（状态分类完备，不重不漏）
-        parts = sum(f.get(k) or 0 for k in
-                    ("n_success", "n_failed", "n_timeout",
-                     "n_incomplete", "n_cancelled", "n_harness_error"))
-        rep.check(f"{rid} c{conc}: 状态分类求和 == 请求总数（不重不漏）",
-                  parts, f.get("n_requests"))
+        #
+        # ⚠️ 这里必须和 run_bench.summarize() 里的 n_* 字段一一对应。
+        #    每加一个新的请求状态，都要同时加到这里 ——
+        #    否则这个检查会算出一个偏小的和，报"分类不完整"。
+        #    我踩过：加了 truncated 和 service_lost 之后这里没跟着改。
+        #
+        # ⚠️ 但【老运行】的 summary.json 里没有新字段（它们跑在那个版本之前），
+        #    不能因为"老数据缺字段"就报失败 —— 那不是缺陷。
+        #    判据：只查有 status_breakdown 的运行，并允许缺的字段按 0 计；
+        #    真正要保证的是"不重不漏"，即各字段之和 == status_breakdown 之和。
+        _ALL_STATUS_COUNTERS = (
+            "n_success", "n_truncated", "n_service_lost",
+            "n_failed", "n_timeout", "n_incomplete",
+            "n_cancelled", "n_harness_error",
+        )
+        bd = f.get("status_breakdown") or {}
+        if not bd:
+            rep.note(f"{rid} c{conc}: 没有 status_breakdown（老数据），"
+                     f"跳过状态分类检查")
+        else:
+            # status_breakdown 是原始逐状态计数 —— 它必须覆盖全部记录
+            rep.check(f"{rid} c{conc}: status_breakdown 之和 == 请求总数",
+                      sum(bd.values()), f.get("n_requests"))
+            # 各 n_* 字段之和也要等于它（缺字段按 0，但和必须对得上）
+            rep.check(
+                f"{rid} c{conc}: n_* 字段之和 == status_breakdown 之和（不重不漏）",
+                sum(f.get(k) or 0 for k in _ALL_STATUS_COUNTERS),
+                sum(bd.values()))
+            # 新状态字段必须存在 —— 但要确认这是在"新版本跑的数据"上查
+            present = [k for k in _ALL_STATUS_COUNTERS if k in f]
+            if "n_truncated" in f or "n_service_lost" in f:
+                rep.check_true(
+                    f"{rid} c{conc}: 新版 summary 的状态计数字段齐全",
+                    len(present) == len(_ALL_STATUS_COUNTERS),
+                    f"缺：{[k for k in _ALL_STATUS_COUNTERS if k not in f]}")
 
     # ── 整体成功率 ────────────────────────────────────────────────────
     ov = s.get("overall") or {}
@@ -257,15 +303,35 @@ def _check_one(rid, rep):
     # ── 边界④：失败请求必须【不在】成功集合里，且被单独归类 ────────────
     bad = [r for r in rows if r.get("status") != "success"]
     if bad:
-        rep.note(f"{rid}: 有 {len(bad)} 条非成功记录，"
-                 f"状态分布 "
-                 f"{ {x: sum(1 for r in bad if r.get('status') == x) for x in set(r.get('status') for r in bad)} }")
-        # 非成功记录不应带 finish_reason（那意味着它其实成功了）
+        dist = {x: sum(1 for r in bad if r.get("status") == x)
+                for x in {r.get("status") for r in bad}}
+        rep.note(f"{rid}: 有 {len(bad)} 条非成功记录，状态分布 {dist}")
+
+        # ⚠️ 这里的断言改过一次，记下来：
+        #    原来写的是"非成功记录不应有 finish_reason" —— 太绝对了。
+        #    加进 truncated（输出撞上 max_tokens 被截断）之后，
+        #    这类记录【有】 finish_reason=length，却确实不算成功
+        #    （输出残缺）。所以正确的判据是：
+        #       · 成功   → 必须有 finish_reason（或收到 [DONE]）
+        #       · 非成功 → 只允许 truncated 带 finish_reason=length
         with_fr = [r for r in bad if r.get("finish_reason")]
+        wrong = [r for r in with_fr
+                 if not (r.get("status") == "truncated"
+                         and r.get("finish_reason") == "length")]
         rep.check_true(
-            f"{rid}: 非成功记录不应有 finish_reason",
-            len(with_fr) == 0,
-            f"有 {len(with_fr)} 条同时是非成功又有 finish_reason")
+            f"{rid}: 非成功记录里只有『截断』允许带 finish_reason=length",
+            not wrong,
+            f"有 {len(wrong)} 条不是 truncated 却带 finish_reason："
+            + str([(r.get('task_id'), r.get('status'),
+                    r.get('finish_reason')) for r in wrong[:3]]))
+
+        # 反过来也要查：成功的记录必须真的拿到了结束标记
+        ok_no_fr = [r for r in ok
+                    if not r.get("finish_reason") and not r.get("saw_done")]
+        rep.check_true(
+            f"{rid}: 成功记录都拿到了结束标记（finish_reason 或 [DONE]）",
+            not ok_no_fr,
+            f"有 {len(ok_no_fr)} 条既无 finish_reason 也没收到 [DONE] 却被算成功")
     else:
         rep.note(f"{rid}: 本次运行全部成功，"
                  f"边界④（失败请求计数）未被数据覆盖 —— 需要专门造样例")

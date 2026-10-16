@@ -47,8 +47,8 @@ class RequestResult:
         self.d = {
             "request_id": req_id,
             "task_id": task_id,
-            "status": None,          # success / truncated / incomplete
-                                     # / failed / timeout / cancelled / harness_error
+            "status": None,          # success / truncated / cancelled / service_lost
+                                     # / incomplete / failed / timeout / harness_error
             "error_type": None,
             "error_message": None,
 
@@ -117,8 +117,29 @@ def make_request_id():
     return time.strftime("%H%M%S") + "-" + uuid.uuid4().hex[:8]
 
 
+def _service_alive(base_url, timeout=3):
+    """
+    快速探一下模型服务还在不在。返回 True/False。
+
+    ⚠️ 为什么需要它（区分两种"连不上"）：
+       failed（URLError/连接被拒）这个分类太笼统，它把两件性质完全不同的事
+       混在一起：
+         · 服务【本来就没起】   → 环境问题，测试不该开始
+         · 服务【跑到一半没了】 → 服务退出，是要记录、要演示的异常
+       而题目明确要求「记录错误发生时间、请求状态、原因」「能演示服务退出后的
+       检测、重启、就绪确认」。所以必须能区分 —— 判据就是"现在还有没有人监听"。
+    """
+    try:
+        url = base_url.rstrip("/") + "/health"
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return r.status == 200
+    except Exception:                                         # noqa: BLE001
+        return False
+
+
 def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
-            timeout=600, client_id=None, cancel_event=None):
+            timeout=600, client_id=None, cancel_event=None,
+            cancel_reason=None):
     """
     执行一次流式请求，返回 RequestResult。
 
@@ -133,14 +154,33 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
         「成功、失败、超时、★取消等状态，错误类型与错误信息。」
         没有取消能力的话，cancelled 就只是注释里的一个词 —— 声明了却做不到。
 
-    ⚠️ 判定优先级：取消 > 成功。
-       即使取消那一刻已经收到 finish_reason，仍然记为取消 ——
-       因为请求是被【主动掐断】的，不是自然跑完。
-       这个顺序搞反了，会让"取消数"恒为 0。
+    ── cancel_reason：取消的原因文字，会写进 error_message ─────────────
+    ⚠️ 用它区分两种取消：
+        · 测试被用户停止     → "测试被停止，该请求在生成中途被中断"
+        · 代码里主动取消某条 → 由调用方给说明
+       两条记录的 status 都是 cancelled，但原因要能分清，
+       否则事后看记录不知道是"人为停了整个测试"还是"这一条被单独放弃"。
 
-    ⚠️ 取消【不算失败】：它是主动行为，与"服务出错"性质不同。
-       汇总里单独计数（n_cancelled），也不计入 token 吞吐分子
-       （取消时产出的 token 是残缺的）。
+    ── 状态分类（这是本函数的输出契约）──────────────────────────────────
+        success       自然跑完（finish_reason=stop / 收到 [DONE]）
+        truncated     ★输出撞上 max_tokens 上限，被硬截断
+        cancelled     被主动取消（测试被停止，或调用方放弃这一条）
+        service_lost  ★模型服务在请求过程中消失（崩溃/被杀）—— 见下
+        incomplete    流在结束标记前断了（服务端中止了批次，但服务还在）
+        failed        HTTP 错误（4xx/5xx）或别的连接问题
+        timeout       超时
+        harness_error 测试程序自身的 bug
+
+    ⚠️ service_lost 与 cancelled 的区别（这两个最容易混）：
+        cancelled     是【我们】主动停的 —— 测试被停止，或代码放弃这一条。
+                      服务是好的，只是这一条不跑了。
+        service_lost  是【服务】没了 —— 请求发出去/发到一半，模型服务
+                      崩溃或被杀。我们没让它停，它自己走了。
+       混在一起的后果：报告里说不清"这次有多少请求是被服务退出打断的" ——
+       而这恰恰是「异常与恢复」一节要的数字。
+
+    ⚠️ 判定优先级：取消 > 截断 > 服务消失 > 成功。
+       顺序搞反会让某一类计数恒为 0。
     """
     res = RequestResult(make_request_id(), None)
     if client_id is not None:
@@ -251,7 +291,9 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
             res["status"] = "cancelled"
             res["error_type"] = "Cancelled"
             res["error_message"] = (
-                f"请求被主动取消（读到第 {cancel_at_chunk} 个块时）")
+                cancel_reason
+                or f"请求被主动取消（读到第 {cancel_at_chunk} 个块时）")
+            res["cancelled_at_chunk"] = cancel_at_chunk
         elif res["finish_reason"] == "length":
             # ⭐ 输出撞上 max_tokens 上限 —— 单独一类，不算成功也不算失败。
             #
@@ -274,14 +316,31 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
                 f"个 token）。这段输出不完整，代码类任务很可能无法直接运行。"
                 f"如需完整输出请调大配置里的 max_tokens。")
         elif res["finish_reason"] is None and not saw_done:
-            res["status"] = "incomplete"
-            res["error_type"] = "NoFinishReason"
-            res["error_message"] = (
-                "流在收到结束标记前中断（没有 finish_reason，也没有 [DONE]）。"
-                "常见原因：同批次请求把共享的 KV 池撑爆，"
-                "服务端 send_error 后终止了这一批。"
-                + (f" 底层错误：{res['stream_error']}"
-                   if res.get("stream_error") else ""))
+            # 流在结束标记前断了。
+            #
+            # ⚠️ 这里要再分一次：断的原因是【服务没了】还是【服务还在但中止了这批】？
+            #    前者是 service_lost（服务退出），后者是 incomplete（比如 KV 撑爆）。
+            #    判据：现在还有没有人监听 —— 探一下就知道。
+            #    实测：客户端只看到"连接被关闭"，HTTP 状态还是 200，
+            #    不主动探测根本分不清这两种。
+            if not _service_alive(base_url):
+                res["status"] = "service_lost"
+                res["error_type"] = "ServiceLost"
+                res["error_message"] = (
+                    "模型服务在本次请求进行中消失（探测 /health 已不可达）。"
+                    "这条请求【已发出并被中断】，已生成的部分保留在下面。"
+                    + (f" 底层错误：{res['stream_error']}"
+                       if res.get("stream_error") else ""))
+            else:
+                res["status"] = "incomplete"
+                res["error_type"] = "NoFinishReason"
+                res["error_message"] = (
+                    "流在收到结束标记前中断（没有 finish_reason，也没有 [DONE]）。"
+                    "常见原因：同批次请求把共享的 KV 池撑爆，"
+                    "服务端 send_error 后终止了这一批。"
+                    "（服务本身仍可达）"
+                    + (f" 底层错误：{res['stream_error']}"
+                       if res.get("stream_error") else ""))
         else:
             res["status"] = "success"
         res["saw_done"] = saw_done
@@ -313,9 +372,27 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
 
     except Exception as e:                                    # noqa: BLE001
         res["t_done"] = time.perf_counter() - t0
-        res["status"] = "failed"
-        res["error_type"] = type(e).__name__
-        res["error_message"] = str(e)[:300]
+        # ⚠️ 连接失败有两种，必须分开：
+        #     · 服务在请求【发出前/发出时】就不可达，且现在仍不可达
+        #       → service_lost（服务退出）。这是要记录的异常。
+        #     · 别的连接问题（网络抖动、连接被重置但服务还在）
+        #       → failed。
+        #    判据还是"现在有没有人监听"。
+        err_name = type(e).__name__
+        if not _service_alive(base_url):
+            # 这条是【请求发出去之前/连接建立时】就发现服务没了，
+            # 所以它没有"已生成的部分"——与流中断那一支区分开。
+            # 界面上显示同一种状态（都是服务消失），但原因要写清。
+            res["status"] = "service_lost"
+            res["error_type"] = "ServiceLost"
+            res["error_message"] = (
+                f"模型服务不可达，这条请求【没有发出去】"
+                f"（{err_name}: {str(e)[:150]}）。"
+                f"探测 /health 确认服务已停止。")
+        else:
+            res["status"] = "failed"
+            res["error_type"] = err_name
+            res["error_message"] = str(e)[:300]
         return res
 
     # ── 汇总 ───────────────────────────────────────────────────────────────

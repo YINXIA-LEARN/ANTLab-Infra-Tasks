@@ -246,6 +246,148 @@ def _gpu_free_mib():
 
 
 # ── 对外接口 ────────────────────────────────────────────────────────────────
+
+def _read_pid():
+    """
+    读 PID 文件里的模型服务 PID。读不到或进程已不在则返回 None。
+
+    ⚠️ 为什么不直接返回文件内容：PID 文件可能是【过时】的
+       （服务被杀掉时来不及删文件，或者上次没清干净）。
+       返回一个过时 PID 会让界面显示"运行中 PID 12345"，
+       而那个号可能已经被系统分配给别人了。所以顺便探一下进程在不在。
+    """
+    if not PID_FILE.is_file():
+        return None
+    try:
+        pid = int(PID_FILE.read_text().strip())
+    except (ValueError, OSError):
+        return None
+    if pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)          # 信号 0 = 只探测存在性，不真的发信号
+        return pid
+    except (ProcessLookupError, PermissionError):
+        return None
+
+
+def _resolve_active_model():
+    """
+    取"当前该用哪个模型"并找到它的文件。
+
+    返回 (entry, model_path, error)。
+
+    ⚠️ 抽出来是因为 start_only / stop_only / switch_to 都要这一段，
+       而且这里踩过坑：get_initial_active() 返回的是【字符串 id】，
+       不是字典 —— 早先当成 dict 用过，取出来的是 'q' 这样的单个字符。
+    """
+    active_id = models_config.get_initial_active()
+    if not active_id or not isinstance(active_id, str):
+        return None, None, (f"读不到当前模型 id（得到 {active_id!r}）；"
+                            f"检查 configs/models.json 的 active 字段")
+    entry, err = models_config.get_model_entry(active_id)
+    if err or not entry:
+        return None, None, f"注册表里读不到模型 {active_id}：{err}"
+    model_path, perr = config.find_model_path_by_name(entry["file"])
+    if model_path is None:
+        return None, None, f"找不到模型文件：{perr}"
+    return entry, model_path, None
+
+
+def start_only():
+    """
+    只启动模型服务（不碰控制层）。
+
+    返回 dict：{ok, action, message, model_file, pid, health, ms}
+
+    ⚠️ 与 serve.sh model 的区别（这是本函数存在的理由）：
+       serve.sh model 的语义是【重启】—— 先停再起，中间约 3 秒空窗。
+       实测：+1s 000  +2s 000  +3s 503  +4s 200
+       于是两种场景不该用它：
+         ① 服务已经在跑，只是想确认它在 → 用它等于白白中断 3 秒
+         ② 正在跑测试时 → 中断会让那一轮请求集体失败
+       本函数是【幂等】的：已经在跑就直接返回，不做任何动作。
+
+    ⚠️ 为什么要做"已经在跑就跳过"而不是"无脑 start"：
+       无脑 start 会在端口已被占用时失败，或者起出第二个进程
+       （两个进程抢同一个端口，后来者绑定失败但可能留下僵尸）。
+    """
+    t0 = time.time()
+    if is_switching():
+        return {"ok": False, "action": "busy",
+                "message": "模型切换正在进行中，请等它结束",
+                "ms": round((time.time() - t0) * 1000, 1)}
+
+    h = upstream.get_health()
+    if h.get("state") == "ok":
+        return {"ok": True, "action": "skip",
+                "message": "模型服务已经在运行，无需启动（本操作是幂等的）",
+                "health": h,
+                "pid": _read_pid(),
+                "ms": round((time.time() - t0) * 1000, 1)}
+
+    entry, model_path, err = _resolve_active_model()
+    if err:
+        return {"ok": False, "action": "start", "message": err,
+                "ms": round((time.time() - t0) * 1000, 1)}
+
+    # 进程在但 health 不是 ok —— 可能还在加载，也可能半死不活。
+    # ⚠️ 这种情况要先停掉再起，否则会起出第二个进程。
+    if upstream.port_in_use(config.MODEL_SERVER_PORT):
+        log("模型服务：端口被占但健康检查不通过 —— 先停掉残留进程再启动")
+        _stop_server()
+
+    log(f"模型服务：按注册表启动 {entry['file']}"
+        f"（ctx={(entry.get('server_args') or {}).get('ctx')}）")
+    started = _start_server(entry, model_path)
+    h2 = upstream.get_health()
+    return {
+        "ok": bool(started and h2.get("state") == "ok"),
+        "action": "started",
+        "message": ("模型服务已启动并就绪" if started
+                    else "启动失败或等待就绪超时，看 logs/model-server.log"),
+        "model_file": entry["file"],
+        "pid": _read_pid(),
+        "health": h2,
+        "ms": round((time.time() - t0) * 1000, 1),
+    }
+
+
+def stop_only():
+    """
+    只停止模型服务（控制层不受影响）。
+
+    返回 dict：{ok, action, message, ms}
+
+    ⚠️ 为什么控制层要提供这个能力，而不是让人去 WSL 里跑脚本：
+       网页上就能停/起模型服务 —— 这是题目要求的"服务管理界面"。
+       而 `serve.sh stop` 会【把控制层一起停掉】，那样网页本身也没了，
+       根本没法在界面上完成"停模型服务"这个动作。
+    """
+    t0 = time.time()
+    if is_switching():
+        return {"ok": False, "action": "busy",
+                "message": "模型切换正在进行中，请等它结束",
+                "ms": round((time.time() - t0) * 1000, 1)}
+
+    h = upstream.get_health()
+    if h.get("state") == "unreachable" and \
+            not upstream.port_in_use(config.MODEL_SERVER_PORT):
+        return {"ok": True, "action": "skip",
+                "message": "模型服务本来就没在运行",
+                "ms": round((time.time() - t0) * 1000, 1)}
+
+    freed = _stop_server()
+    log("服务页：已停止模型服务（控制层不受影响）")
+    return {
+        "ok": bool(freed),
+        "action": "stopped",
+        "message": ("模型服务已停止，控制层仍在运行" if freed
+                    else "已发出停止，但端口仍被占用"),
+        "ms": round((time.time() - t0) * 1000, 1),
+    }
+
+
 def init_active():
     """
     启动控制层时调用：确认注册表里的 active，并检查模型服务状态。

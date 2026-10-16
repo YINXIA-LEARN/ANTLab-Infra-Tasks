@@ -575,28 +575,53 @@ def stop(reason="用户从网页停止"):
     if not st:
         return False, {"error": "not_running", "message": "当前没有测试在跑"}
     pid = int(st["pid"])
-    try:
-        # 杀整个进程组（子进程是用 setsid 起的，本身就是组长）
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
-    except ProcessLookupError:
-        pass
-    except Exception as e:                                    # noqa: BLE001
+    # ══════════════════════════════════════════════════════════════════════
+    #  ⭐ 分三步停：SIGINT → SIGTERM → SIGKILL
+    #
+    #  ⚠️ 为什么不能一上来就 SIGTERM：
+    #     原来直接 killpg(SIGTERM)，进程立刻死。而测试程序的工作线程
+    #     还阻塞在 socket 读上 —— 它们手里的那几条请求【永远回不来】，
+    #     于是记录里少了"正在跑的那几条"。表现就是：
+    #     停止后一看，只有跑完的，被这个停止掐断的那几条没有记录。
+    #
+    #     SIGINT 是 Python 的 KeyboardInterrupt，测试程序能接住：
+    #     它会给自己人发信号，让在飞的请求主动收尾并记成 cancelled，
+    #     然后才落盘退出。这样"被停止截断的请求"也有名字、有状态。
+    #
+    #  ⚠️ 但仍然要保留后退路径：SIGINT 若被忽略或卡住，
+    #     12 秒后 SIGTERM，再 5 秒 SIGKILL —— 不能让"停止"停不下来。
+    # ══════════════════════════════════════════════════════════════════════
+    def _killpg(sig):
         try:
-            os.kill(pid, signal.SIGTERM)
-        except Exception as e2:                               # noqa: BLE001
-            return False, {"error": "kill_failed",
-                           "message": f"{type(e).__name__}: {e} / {e2}"}
-
-    # 等它退（最多 10 秒），不退就 SIGKILL
-    for _ in range(50):
-        if not _alive(pid):
-            break
-        time.sleep(0.2)
-    if _alive(pid):
-        try:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
+            os.killpg(os.getpgid(pid), sig)
+            return True
+        except ProcessLookupError:
+            return False
         except Exception:                                     # noqa: BLE001
-            pass
+            try:
+                os.kill(pid, sig)
+                return True
+            except Exception:                                 # noqa: BLE001
+                return False
+
+    def _wait_gone(seconds):
+        """等进程退出，返回 True 表示已退"""
+        for _ in range(int(seconds / 0.2)):
+            if not _alive(pid):
+                return True
+            time.sleep(0.2)
+        return False
+
+    if not _killpg(signal.SIGINT):
+        # 进程本来就没了
+        pass
+    elif not _wait_gone(12):
+        log(f"测试页：SIGINT 后 12 秒仍未退出，改用 SIGTERM（PID {pid}）")
+        _killpg(signal.SIGTERM)
+        if not _wait_gone(5):
+            log(f"测试页：SIGTERM 也无效，用 SIGKILL（PID {pid}）")
+            _killpg(signal.SIGKILL)
+            _wait_gone(3)
 
     st["stopped_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     st["stopped_reason"] = reason

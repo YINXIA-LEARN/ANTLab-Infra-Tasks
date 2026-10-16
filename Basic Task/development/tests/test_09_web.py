@@ -101,7 +101,10 @@ def main():
     #
     # 历史：测试页做完了，角标还挂在上面，用户一眼就看出不对。
     # 现在把"哪些页签算已实现"写死在测试里，改了实现就要同步改这里。
-    IMPLEMENTED = {"chat", "bench", "results"}
+    #
+    # ⚠️ 服务页从"未实现"变成"已实现"时，这一行也要跟着改 ——
+    #    这个常量就是"实现进度"的单一记账处。
+    IMPLEMENTED = {"chat", "bench", "results", "service"}
     for m in re.finditer(r'<button class="tab[^"]*" data-tab="([^"]+)"[^>]*>(.*?)</button>',
                          html, re.S):
         tab, body = m.group(1), m.group(2)
@@ -116,6 +119,29 @@ def main():
         if tab not in IMPLEMENTED:
             rep.check_true(f"页签 {tab} 未实现，应有『未实现』角标",
                            "badge-todo" in body, "缺角标")
+
+    # ── ②b 服务页的关键元素（这次新做的）─────────────────────────────
+    #
+    # ⚠️ 为什么单列一段：服务页的核心不是"长得对"，而是
+    #    【两个启停按钮 + 一个开关 + 一句"当前会不会动作"的说明】。
+    #    少任何一个，用户就不知道"我开了开关为什么没反应"。
+    for eid, what in (
+        ("btn-model-start", "单独启动模型服务按钮"),
+        ("btn-model-stop", "单独停止模型服务按钮"),
+        ("svc-watch-enabled", "测试期间自动重启开关"),
+        ("svc-watch-will", "『当前会不会动作』的说明位"),
+        ("svc-events", "服务事件时间线容器"),
+        ("svc-model-status", "模型服务状态区"),
+    ):
+        rep.check_true(f"服务页有{eid}（{what}）",
+                       f'id="{eid}"' in html)
+
+    # 页面上必须写明"只在测试运行中才动作"这条规则 ——
+    # 这是本功能最容易误解的地方，不写用户必然困惑
+    rep.check_true("服务页写明了『只在测试运行中才动作』这条规则",
+                   ("测试运行中" in html or "测试开始之前" in html)
+                   and "不会" in html,
+                   "页面没说明自动重启的作用范围")
 
     # ── ③ 题目要求的 6 项展示能力 ────────────────────────────────────
     for ability, ids in REQUIRED.items():
