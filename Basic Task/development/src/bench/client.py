@@ -75,6 +75,14 @@ class RequestResult:
             "finish_reason": None,        # stop / length
             "n_chunks": None,             # SSE 块数（仅供诊断，不当 token 用）
 
+            # ── 取消（题目要求的「取消」状态）──
+            #    True 表示这条请求被主动掐断。
+            #    注意它与 status="cancelled" 是两回事：
+            #    status 是分类结果，cancelled 是原因标记 ——
+            #    因为异常路径（HTTPError/Timeout）不会有 cancelled 字段，
+            #    单看 status 无法区分"被取消"和"因其他原因没跑完"。
+            "cancelled": False,
+
             # ── HTTP ──
             "http_status": None,
         }
@@ -109,13 +117,29 @@ def make_request_id():
 
 
 def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
-            timeout=600, client_id=None):
+            timeout=600, client_id=None, cancel_event=None):
     """
     执行一次流式请求，返回 RequestResult。
 
     ⚠️ 用流式而不是非流式：
        非流式拿不到"首个内容"的时刻，也就无法测量 TTFT。
        题目要求 TTFT 是"提交至首次收到有效生成内容"，必须流式。
+
+    ── cancel_event：主动取消（对应题目要求的「取消」状态）──────────────
+    threading.Event。被 set 时立刻停止读取，这条请求记为 status="cancelled"。
+
+    为什么需要它（题目原文）：
+        「成功、失败、超时、★取消等状态，错误类型与错误信息。」
+        没有取消能力的话，cancelled 就只是注释里的一个词 —— 声明了却做不到。
+
+    ⚠️ 判定优先级：取消 > 成功。
+       即使取消那一刻已经收到 finish_reason，仍然记为取消 ——
+       因为请求是被【主动掐断】的，不是自然跑完。
+       这个顺序搞反了，会让"取消数"恒为 0。
+
+    ⚠️ 取消【不算失败】：它是主动行为，与"服务出错"性质不同。
+       汇总里单独计数（n_cancelled），也不计入 token 吞吐分子
+       （取消时产出的 token 是残缺的）。
     """
     res = RequestResult(make_request_id(), None)
     if client_id is not None:
@@ -147,12 +171,22 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
     n_chunks = 0
     timings = {}
     saw_done = False          # 是否收到 data: [DONE]
+    cancelled = False         # 是否被主动取消
+    cancel_at_chunk = None    # 取消发生在第几个块
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             res["http_status"] = resp.status
             try:
                 for raw in resp:
+                    # ⭐ 取消检查放在读每一行【之前】——
+                    #    这样"取消后还能读到多少"由轮询间隔决定，
+                    #    而不会把整条流读完。
+                    if cancel_event is not None and cancel_event.is_set():
+                        cancelled = True
+                        cancel_at_chunk = n_chunks
+                        break
+
                     line = raw.decode("utf-8", errors="replace").strip()
                     if not line.startswith("data:"):
                         continue
@@ -210,7 +244,14 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
         #     finish_reason 有值（stop / length）  → 正常完成
         #     收到 [DONE]                          → 也算正常完成（兜底）
         #     两者都没有                            → incomplete（被中断）
-        if res["finish_reason"] is None and not saw_done:
+        # ⚠️ 取消优先于成功：取消是被主动掐断的，即使已经拿到 finish_reason
+        #    也不算自然跑完。顺序搞反会让"取消数"恒为 0。
+        if cancelled:
+            res["status"] = "cancelled"
+            res["error_type"] = "Cancelled"
+            res["error_message"] = (
+                f"请求被主动取消（读到第 {cancel_at_chunk} 个块时）")
+        elif res["finish_reason"] is None and not saw_done:
             res["status"] = "incomplete"
             res["error_type"] = "NoFinishReason"
             res["error_message"] = (
@@ -222,6 +263,10 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
         else:
             res["status"] = "success"
         res["saw_done"] = saw_done
+        res["cancelled"] = cancelled
+        # 取消时已收到的内容仍然保留 —— 是有效数据，只是不完整
+        res["output_text"] = "".join(text_parts)
+        res["n_chunks"] = n_chunks
 
     except urllib.error.HTTPError as e:
         res["t_done"] = time.perf_counter() - t0

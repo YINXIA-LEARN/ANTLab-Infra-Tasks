@@ -49,9 +49,11 @@ except ImportError:                                       # pragma: no cover
 # 预留接口清单：尚未实现的统一返回 501，并说明属于哪个阶段
 # 测试页的接口（/api/bench/form /run /status /stop /cleanup /leftovers）
 # 已经实现，不在这个清单里。
-PLANNED_ENDPOINTS = {
-    "/api/recovery/restart": (3, "触发服务重启（恢复测试）"),
-}
+#
+# ⚠️ 这里原来是 {"/api/recovery/restart": (3, "...")}（S3 阶段的计划项）。
+#    服务恢复功能已整体移除，所以这条也删了 —— 见 do_GET 里
+#    /api/recovery/ 分支的说明。
+PLANNED_ENDPOINTS = {}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -332,6 +334,21 @@ class Handler(BaseHTTPRequestHandler):
                                       "message": f"{type(e).__name__}: {e}"})
             return
 
+        # ── 服务恢复功能已移除 ────────────────────────────────────────
+        #  ⚠️ 移除原因（实测结论）：
+        #     我加的"后台监测 + 自动重启"分不清两种情况：
+        #         ① 服务真的崩了
+        #         ② 有人正在有意重启服务（serve.sh model 就有 3 秒空窗）
+        #     第 ② 种在监测器眼里和崩溃一模一样，于是它每次都去"救"，
+        #     救的过程又制造一次空窗 —— 服务被反复停起。
+        #     表现为：手动测试时服务很稳，一跑我的脚本就频繁掉线。
+        #     这个功能带来的麻烦大于价值，先移除。
+        #     备份在 /tmp/removed_fault_injection/recovery.py。
+        if path.startswith("/api/recovery/"):
+            self._send_json(410, {"error": "gone",
+                                  "message": "服务恢复功能已移除（见提交说明）"})
+            return
+
         if path == "/api/chat":
             self._send_json(405, {"error": "method_not_allowed",
                                   "message": "/api/chat 必须用 POST"})
@@ -567,6 +584,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200 if ok else 409, res)
             return
 
+        # ⚠️ 这里原来有 /api/recovery/config 和 /api/recovery/restart 两个接口，
+        #    随"服务恢复"功能一起移除了（原因见 do_GET 里那段注释）。
+        #    现在它们统一返回 410，见下面的 startswith 分支。
+        if path.startswith("/api/recovery/"):
+            self._send_json(410, {"error": "gone",
+                                  "message": "服务恢复功能已移除"})
+            return
+
         if path == "/api/bench/cleanup":
             try:
                 payload = json.loads(body.decode("utf-8")) if body else {}
@@ -675,6 +700,15 @@ def main():
         log(f"本地模型文件：{local_path}")
     else:
         log("⚠️ 本地未找到模型文件（不影响控制层启动，但对话会不可用）")
+
+    # ── 服务监测已移除 ────────────────────────────────────────────────
+    #  曾经这里调用 recovery.init() 启动后台监测（自动重启掉线的服务）。
+    #  移除原因见 do_GET 里 /api/recovery/ 那段注释：
+    #  它分不清"服务真崩了"和"有人正在有意重启服务"，
+    #  导致 serve.sh model 的正常空窗被当成掉线，服务被反复停起。
+    #
+    #  现在改为【不做自动操作】：服务状态照常通过 /api/status 暴露，
+    #  需要重启时由人显式执行 serve.sh model 或前端切换。
 
     srv = ThreadingHTTPServer((config.CONTROL_HOST, config.CONTROL_PORT), Handler)
     srv.daemon_threads = True

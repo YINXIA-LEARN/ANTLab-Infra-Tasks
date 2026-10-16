@@ -114,6 +114,49 @@ def collect_hardware():
     return hw
 
 
+def wait_service_ready(base_url, log, timeout_s=45, poll_s=1.0):
+    """
+    等模型服务就绪，最多 timeout_s 秒。返回 (就绪?, 说明)。
+
+    ⚠️ 为什么需要它（实测踩坑）：
+       服务不可用时，collect_model_info 立刻返回 error，
+       接着"模型校验"直接判定失败并 ABORT —— 整轮测试作废（退出码 2）。
+
+       而【服务短暂的不可用是正常的】：
+         · `serve.sh model` 的语义是"重启"（先停后起），中间约 3 秒没监听
+         · 恢复流程重启服务时，也有 5~8 秒不可用
+         · 任何一次网络抖动同理
+
+       实测证据：静置 60 秒服务稳如磐石（health 一直 200），
+       但执行一次 `serve.sh model` 后：
+           +1s health=000   ← 空窗
+           +2s health=000   ← 空窗
+           +3s health=503   ← 正在启动
+           +4s health=200
+       如果测试恰好在这 3 秒里做校验，就会【因为我自己重启服务而失败】。
+
+       所以：开跑前先等它，而不是一探不到就放弃。
+       这也让"服务正在被恢复"这种正常情况不再被误判为测试环境有问题。
+    """
+    url = base_url.rstrip("/") + "/health"
+    t0 = time.time()
+    last = None
+    while time.time() - t0 < timeout_s:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                if r.status == 200:
+                    waited = time.time() - t0
+                    if waited > 1.5:
+                        log(f"  服务在 {waited:.1f} 秒后就绪"
+                            f"（期间处于重启/恢复窗口，已等待）")
+                    return True, None
+                last = f"HTTP {r.status}"
+        except Exception as e:                                # noqa: BLE001
+            last = f"{type(e).__name__}: {e}"
+        time.sleep(poll_s)
+    return False, (f"等待 {timeout_s} 秒后服务仍未就绪；最后一次探测：{last}")
+
+
 def collect_model_info(base_url):
     """模型信息（题意①）"""
     try:
@@ -266,6 +309,102 @@ class GpuSampler(threading.Thread):
 
     def peak_mib(self):
         return max((s[1] for s in self.samples), default=None)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  服务实例标记 + 运行中恢复监测
+#
+#  ⚠️ 为什么需要这两样（这是"半截混血"问题的解法）：
+#
+#     服务如果在测试中途被重启，一次运行里就有【两个服务实例】的数据：
+#         前半段  实例 A —— KV 池已被填充、前缀缓存是热的、CUDA Graph 已建立
+#         后半段  实例 B —— 刚起来，KV 全空、缓存冷、Graph 要重建
+#     两者的 TTFT / 吞吐特性【明显不同】（冷启动 24ms vs 预热后 14ms 就是证据）。
+#
+#     而这个差异【在数据里原本看不出来】：
+#         meta.json 没有服务实例字段
+#         逐请求记录也没有
+#     于是汇总出来的"中位 TTFT"既不属于实例 A 也不属于实例 B，
+#     是个无法解释的数 —— 而且事后无法把它们分开重算。
+#
+#     解法：① 每条请求标明它由哪个实例（PID）处理、那之前重启过几次
+#           ② 运行目录里留一份 recovery-during-run.jsonl
+#           ③ meta.json 里给出恢复次数总览
+#     这样"半截混血"就从【隐患】变成【记录在案的事实】，
+#     报告里可以说清"这次运行跨了 2 个实例，第 46 条起为实例 B"。
+#
+#  为什么不阻断重启而是记录它：
+#     监测器的职责是让服务活着。不重启的话那一轮会一路失败到底，
+#     损失的是一条完整运行；重启只是让它"部分可用"——后者不更差。
+#     只要差异被记下来，数据就仍然可用（可以分段统计）。
+# ══════════════════════════════════════════════════════════════════════════
+
+# 服务实例状态（跨线程共享，用锁保护）
+#
+# ⚠️ 这里原来还有 n_restarts / events / monitor / _stop 四个键，
+#    是给"运行中恢复监测线程"用的。那个线程随控制层的服务恢复功能
+#    一起移除了 —— 它分不清"服务真崩"和"有人正在有意重启服务"，
+#    导致服务被反复停起。现在只剩"记下开跑时的 PID"这一个用途，
+#    不再有任何后台线程。
+_inst_lock = threading.Lock()
+_inst_state = {
+    "pid_at_start": None,     # 本次运行开始时的服务进程 PID
+}
+
+# 服务 PID 文件。serve.sh 与 model_manager 共用这一个文件。
+_SERVER_PID_FILE = (Path(__file__).resolve().parents[1]
+                    / "logs" / "model-server.pid")
+
+
+def current_server_pid():
+    """
+    读当前模型服务的 PID。
+
+    ⚠️ 用 PID 文件而不是 /proc 扫描：
+       serve.sh 与 model_manager 约定【共用同一个 PID 文件】，
+       "谁启动谁写、谁停止谁删"（这约定写在 model_manager._stop_server 的注释里）。
+       扫进程容易把别的实例或僵尸进程算进来（踩过：pgrep 抓到 <defunct>）。
+    """
+    try:
+        return int(_SERVER_PID_FILE.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def tag_run_instance(rec):
+    """
+    给一条请求记录打上服务实例标记。
+
+    写入一个字段（不是测量值，是对"这条请求在什么服务状态下产生"的说明）：
+        service_instance_pid   处理这条请求的服务进程 PID
+
+    ⚠️ 原来还写一个 service_restarts_before（本次运行经历过几次重启），
+       那个值来自后台监测线程。线程移除后它恒为 0，是误导，所以删掉。
+       现在判断"是否跨了不同服务进程"看【service_instance_pid 是否唯一】——
+       这个判据直接来自数据本身，比依赖一个监测线程可靠。
+    """
+    rec["service_instance_pid"] = current_server_pid()
+    return rec
+
+
+def instance_summary():
+    """
+    给 meta.json 用的服务实例总览。
+
+    ⚠️ 这个函数原来会报告"运行期间重启过几次"（从后台监测线程收集的
+       恢复事件里数）。那个机制随控制层的服务恢复功能一起移除了，
+       所以现在只报【首尾 PID】—— 这是唯一还可靠的信息源。
+
+    仍然有用的地方：如果首尾 PID 不同，说明服务在这次运行期间
+    确实换了进程（不管是谁换的）。这时逐请求记录里的
+    service_instance_pid 字段就能把前后两段区分开。
+    """
+    return {
+        "pid_at_start": _inst_state.get("pid_at_start"),
+        "pid_at_end": current_server_pid(),
+        "note": ("首尾 PID 记录；逐请求记录里另有 service_instance_pid 字段，"
+                 "可据此判断本次运行的请求是否跨了不同服务进程。"),
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -612,6 +751,11 @@ _REQUIRED_FUNCS = [
     # 服务
     "read_server_config", "current_service_state",
     "restart_with_params", "plan_service_change", "find_serve_sh",
+    "wait_service_ready",
+    # 服务实例标记（记录每条请求由哪个服务进程处理）
+    "current_server_pid", "tag_run_instance", "instance_summary",
+    # 安全格式化（None 也要能打）与统计辅助
+    "_ms", "_pct", "_tok", "_safe_median",
     # 交互
     "collect_interactive", "answers_to_config",
     # 执行与汇总
@@ -884,10 +1028,19 @@ def answers_to_config(answers, base):
 
 
 def run_one_wave(wave_tasks, cache, cfg, client_id, results):
-    """并发发出一个 wave 的所有请求，等全部完成"""
+    """
+    并发发出一个 wave 的所有请求，等全部完成。
+
+    ⚠️ 这里原来有两个"测试钩子"（cancel_after_chunks / timeout_override），
+       用来给 tests/test_05_errors.py 注入取消与超时。随异常制造功能
+       一起移除了 —— 正式测量不需要它们，而它们的存在会让
+       "这次运行是注入过的"成为一个需要额外的字段去标注的状态。
+    """
     q = queue.Queue()
     for tid in wave_tasks:
         q.put(tid)
+
+    timeout = cfg["timeout_s"]
 
     def worker(worker_idx):
         while True:
@@ -896,13 +1049,19 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results):
             except queue.Empty:
                 return
             info = cache[tid]
+
+            # client.run_one 仍支持 cancel_event（取消能力保留在 client.py），
+            # 但正式跑测试时不传 —— 只有代码里显式需要取消时才用。
+            cancel_ev = None
+
             try:
                 r = client.run_one(
                     cfg["base_url"], info["messages"],
                     max_tokens=cfg["max_tokens"],
                     temperature=cfg["temperature"],
-                    timeout=cfg["timeout_s"],
+                    timeout=timeout,
                     client_id=f"{client_id}-w{worker_idx}",
+                    cancel_event=cancel_ev,
                 )
             except Exception as e:                            # noqa: BLE001
                 # ⚠️ 不能把这里的异常当成"请求失败"记下来 —— 那会把
@@ -918,7 +1077,11 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results):
                 r["error_message"] = f"{type(e).__name__}: {e}"
                 r["error_traceback"] = traceback.format_exc()
                 r["client_id"] = f"{client_id}-w{worker_idx}"
+            finally:
+                if cancel_ev is not None:
+                    cancel_ev.set()       # 保证定时线程不会悬着
             r["task_id"] = tid
+            tag_run_instance(r)           # ⭐ 标明这条请求是哪个服务实例处理的
             results.append(r)
 
     threads = [threading.Thread(target=worker, args=(i,))
@@ -1082,7 +1245,12 @@ def verify_model_matches_config(cfg, model_info, log):
     if not got:
         return False, ("读不到服务实际加载的模型（模型服务没运行？）"
                        + (f"；服务返回：{model_info.get('error')}"
-                          if model_info.get("error") else ""))
+                          if model_info.get("error") else "")
+                       + "\n      注意：开跑前已等待 45 秒仍不可用，"
+                         "说明服务是真的没起来，不是短暂的重启窗口。\n"
+                         "      排查：bash serve.sh status 看两个服务；"
+                         "bash serve.sh model 起模型服务；"
+                         "bash serve.sh logs 看日志")
     if not want:
         return True, f"配置未指定 model_file，按服务实际加载的 {got} 记录"
 
@@ -1306,6 +1474,50 @@ def verify_service_matches_config(cfg, log):
                   f"{st.get('ctk') or 'f16'}-{st.get('ctv') or 'f16'}")
 
 
+# ══════════════════════════════════════════════════════════════════════════
+#  安全的日志格式化
+#
+# ⚠️ 为什么需要这两个小函数（这是测试抓出来的真 bug）：
+#
+#   写"每档完成"那行日志时，原来是直接 format 中位数：
+#       f"  TTFT 中位 {s['ttft_ms']['median']:.0f} ms"
+#
+#   平时全都成功，中位数有值，没事。
+#   但【所有请求都失败或被取消】时，成功集合为空，中位数是 None，
+#   格式化立刻抛 TypeError —— 于是：
+#       · 这一轮的 summary.json 没写出来
+#       · runs.json 没登记
+#       · 已经跑完的数据全丢了
+#
+#   也就是说：报错功能本身在"真的出错了"的时候会崩 ——
+#   而这条路径平时永远不会被走到，直到 tests/test_05_errors.py 主动注入失败。
+#
+#   修法：把"没有样本"显示成 "—"，而不是让它崩。
+# ══════════════════════════════════════════════════════════════════════════
+
+def _ms(v):
+    """毫秒值 → 日志文本。None（没有成功样本）时给 '—'"""
+    return f"{v:.0f} ms" if isinstance(v, (int, float)) else "—"
+
+
+def _pct(v):
+    """比率 → 百分比文本。None（分母为 0）时给 '—'"""
+    return f"{v * 100:.1f}%" if isinstance(v, (int, float)) else "—"
+
+
+def _tok(v):
+    """吞吐值 → 日志文本。None 时给 '—'"""
+    return f"{v:.1f}" if isinstance(v, (int, float)) else "—"
+
+
+def _safe_median(values):
+    """中位数，空集合返回 None（不抛异常）"""
+    v = [x for x in values if isinstance(x, (int, float))]
+    if not v:
+        return None
+    return statistics.median(v)
+
+
 def main():
     # ⭐ 先自查文件完整性 —— 缺函数就立刻退出（退出码 90），
     #    而不是等跑到那一行才 NameError（那样已经建了目录、改了服务）。
@@ -1441,6 +1653,11 @@ def main():
     # ══════════════════════════════════════════════════════════════════════
     #  阶段 C：建目录、开跑
     # ══════════════════════════════════════════════════════════════════════
+    # ⚠️ 这里原来有两个"测试钩子"参数（--cancel-after / --timeout-override），
+    #    用来给 tests/test_05_errors.py 主动注入取消与超时。
+    #    随异常制造功能一起移除了 —— 相关测试（test_05/test_06）也不做了。
+    #    留下的 cancel_event 能力在 client.py 里，仍可用代码直接调用。
+
     # 默认输出目录：<development>/results
     #
     # ⚠️ 目录层级（本文件在 <development>/src/bench/ 下）：
@@ -1481,6 +1698,12 @@ def main():
 
     # ── 采集环境（题意①）──────────────────────────────────────────────
     log("采集环境信息…")
+    # ⭐ 先等服务就绪再采集 —— 否则服务恰好在"重启/恢复窗口"里时，
+    #    采集会失败，紧接着的模型校验就判 ABORT，整轮测试白跑。
+    #    （实测：serve.sh model 会制造约 3 秒空窗）
+    ready, why = wait_service_ready(cfg["base_url"], log, timeout_s=45)
+    if not ready:
+        log(f"  ⚠️ {why}")
     meta = {
         "run_id": run_id,
         "label": label,
@@ -1516,6 +1739,11 @@ def main():
         "actual_running": meta["model"].get("model_name"),
         "matches": matched,
     }
+    # ⭐ 服务实例：记下开跑时的服务进程 PID。
+    #    结束时（见文件末尾）会再记一次，两者不同则说明运行期间换了进程。
+    #    不依赖任何后台监测 —— 只读一次 PID 文件，零副作用。
+    _inst_state["pid_at_start"] = current_server_pid()
+    meta["service_instance"] = instance_summary()
 
     (out / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1570,6 +1798,18 @@ def main():
         (out / "run.log").write_text("\n".join(lines), encoding="utf-8")
         return
 
+    # ── 服务实例标记（轻量、无副作用）────────────────────────────────
+    #
+    #  只记录"这条请求由哪个服务进程处理"。这不需要任何后台线程，
+    #  也不碰服务，纯粹是读一次 PID 文件 —— 零风险，所以保留。
+    #
+    #  ⚠️ 曾经这里还会起一个"运行中恢复监测"线程，读控制层写的
+    #     recovery-events.jsonl，用来发现"测试中途服务被重启过"。
+    #     那个功能随控制层的服务恢复一起移除了（原因：它分不清
+    #     "服务真崩"和"有人正在有意重启服务"，导致服务被反复停起）。
+    #     现在不再起任何后台监测线程。
+    log(f"服务实例：PID {current_server_pid()}")
+
     # ── 冷启动 / 预热 / 正式（题目要求区分记录）──────────────────────
     cold_start = None
     warmup_records = []
@@ -1584,6 +1824,7 @@ def main():
                                timeout=cfg["timeout_s"])
             r["task_id"] = wid
             r["phase"] = "cold_start" if i == 0 else "warmup"
+            tag_run_instance(r)       # ⭐ 标记服务实例
             if i == 0:
                 cold_start = r.to_dict()
                 log(f"  冷启动 TTFT {r['ttft_ms']:.0f} ms，"
@@ -1628,10 +1869,10 @@ def main():
         summaries[str(conc)] = s
 
         log(f"  完成：成功 {s['n_success']}/{s['n_requests']}"
-            f"（{s['success_rate'] * 100:.1f}%）"
-            f"  TTFT 中位 {s['ttft_ms']['median']:.0f} ms"
-            f"  P95 {s['ttft_ms']['p95']:.0f} ms"
-            f"  吞吐 {s['throughput']['output_tokens_per_s'] or 0:.1f} tok/s"
+            f"（{_pct(s['success_rate'])}）"
+            f"  TTFT 中位 {_ms(s['ttft_ms'].get('median'))}"
+            f"  P95 {_ms(s['ttft_ms'].get('p95'))}"
+            f"  吞吐 {_tok(s['throughput'].get('output_tokens_per_s'))} tok/s"
             f"  峰值显存 {sampler.peak_mib()} MiB")
 
         # 显存采样落盘
@@ -1667,9 +1908,54 @@ def main():
         "warmup_note": "冷启动与预热单独记录，不混入正式测试统计（题目要求）",
         "overall_window_note": "overall 的统计窗口是各并发档墙钟时间之和，不含冷启动与预热",
         "overall": summarize(all_records, wall_time_s=formal_wall),
+        # ⭐ 服务实例总览：这次运行跨了几个实例、有没有中途重启
+        "service_instance": {
+            "pid_at_end": current_server_pid(),
+            **instance_summary(),
+        },
     }
+
+    # ── 跨服务实例的分段统计 ──────────────────────────────────────────
+    #
+    #  为什么需要它：如果一次运行期间服务换了进程，重启前后的请求特性不同
+    #  （KV 池与前缀缓存被清空），混在一起算出的中位数无法解释。
+    #  这里按 service_restarts_before 把请求切成几段，各段单独汇总 ——
+    #  这样报告既能看到"整体跨了几个实例"，也能给出各段自己的指标。
+    #
+    #  ⚠️ 判据改用【逐请求记录里的 service_instance_pid 是否唯一】，
+    #     而不再依赖后台监测收集的"重启次数"（那个机制已移除）。
+    #     这个判据更可靠：它直接来自数据本身。
+    pids = {r.get("service_instance_pid") for r in all_records}
+    pids.discard(None)
+    if len(pids) > 1:
+        segs = {}
+        for r in all_records:
+            k = str(r.get("service_instance_pid") or "未知")
+            segs.setdefault(k, []).append(r)
+        final["by_service_instance"] = {
+            f"pid_{k}": {
+                "服务进程": k,
+                "n_requests": len(v),
+                "n_success": len([x for x in v if x.get("status") == "success"]),
+                "ttft_ms_median": _safe_median(
+                    [x["ttft_ms"] for x in v if x.get("ttft_ms") is not None]),
+                "note": "分段口径：同一段内服务进程相同，指标可单独解释",
+            }
+            for k, v in sorted(segs.items())
+        }
+        log(f"⚠️ 本次运行的请求跨越 {len(pids)} 个服务进程（{sorted(pids)}）—— "
+            f"已在 summary.json 的 by_service_instance 里分段统计")
+        for k, v in sorted(final["by_service_instance"].items()):
+            log(f"     {k}: {v['n_requests']} 条请求，{v['n_success']} 成功，"
+                f"TTFT 中位 {v['ttft_ms_median']}")
+
     (out / "summary.json").write_text(
         json.dumps(final, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # ── 把最终的服务实例总览写回 meta.json ────────────────────────────
+    meta["service_instance"] = instance_summary()
+    (out / "meta.json").write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # ── 更新登记表（方便前端列出与自动配对对比）────────────────────────
     rec = make_registry_record(run_id, label, cfg, meta, summaries,
