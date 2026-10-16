@@ -58,7 +58,15 @@ _SRC = Path(__file__).resolve().parents[1]
 _DEV = Path(__file__).resolve().parents[2]
 
 SERVE_SH = _SRC / "serve.sh"
-BENCH_PY = _SRC / "bench" / "run_bench.py"
+
+# ⚠️ 测试程序的位置：2026-10-16 从 src/bench/ 挪到了 tests/core/。
+#    理由：它是"跑固定负载产出数据"的那个测试程序，归 tests/ 更顺；
+#    而 src/bench/ 里剩下的 client.py 是共用的 HTTP 客户端（控制层也用），
+#    不属于"测试"本身，留在源码目录。
+#    放在 core/ 而不是 tests/ 根，是为了和依赖它的那 8 个测试同级 ——
+#    目录深度与原来 src/bench/ 相同（3 层到 development/），
+#    run_bench 里的路径常量只需换指向、不用重算层级。
+BENCH_PY = _DEV / "tests" / "core" / "run_bench.py"
 
 # ══════════════════════════════════════════════════════════════════════════
 #  配置目录：分成两个，不要混

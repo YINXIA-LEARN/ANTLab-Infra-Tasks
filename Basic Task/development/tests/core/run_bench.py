@@ -55,10 +55,37 @@ import traceback
 import urllib.request                             # noqa: F401
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from bench import client                      # noqa: E402
 from common import file_input, tasks          # noqa: E402
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  路径常量（★ 单一事实来源 —— 别在函数里另算一遍 parents[N]）
+#
+#  ⚠️ 为什么要提出来做成模块级常量：
+#     原来这些路径散在 5 个函数里各自写 `Path(__file__).resolve().parents[N]`。
+#     2026-10-16 把本文件从 src/bench/ 挪到 tests/core/ 时，这 5 处
+#     全都要跟着改 —— 漏一处就会【静默】写到别的目录去
+#     （不是报错，是"数据不见了"那种，最难查）。
+#     现在集中在这里，挪动时只改这一段。
+#
+#  ⚠️ 目录层级（本文件在 <development>/tests/core/ 下）：
+#         parents[0] = core        [1] = tests
+#         [2] = development        [3] = Basic Task
+#     早先本文件在 <development>/src/bench/ 下时，development 是 parents[2]；
+#     挪到 tests/core/ 之后仍然是 parents[2]（层级深度没变），
+#     但指向 src/ 的那个变了 —— 见 SRC_DIR。
+# ══════════════════════════════════════════════════════════════════════════
+_DEV_DIR = Path(__file__).resolve().parents[2]      # <development>/
+_SRC_DIR = _DEV_DIR / "src"                          # <development>/src/
+DEV_DIR = _DEV_DIR
+SRC_DIR = _SRC_DIR
+RESULTS_ROOT = _DEV_DIR / "results"                  # 结果根目录
+CONFIGS_DIR = _DEV_DIR / "configs"                   # 正式配置
+SERVER_PID_FILE = _SRC_DIR / "logs" / "model-server.pid"
+SERVE_SH = _SRC_DIR / "serve.sh"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -185,11 +212,9 @@ def read_server_config():
     服务配置（题意①）—— 从注册表和进程命令行里取。
     这些参数直接决定性能，必须随结果一起存。
 
-    ⚠️ 路径层级：本文件在 <development>/src/bench/ 下，
-       所以 parents[0]=bench [1]=src [2]=development [3]=仓库根。
-       注册表在 <development>/configs/models.json —— 用 parents[2]。
-       （迁移到 development/ 之后布局变了，早先写的 parent.parent 会
-         指到 src/configs，读不到。）
+    ⚠️ 路径：用模块顶部的 CONFIGS_DIR 常量，别在这里另算 parents[N]。
+       （本文件挪过一次位置：src/bench/ → tests/core/。
+         散着写 parents[N] 时，挪动就要逐个改，漏一处会静默读错文件。）
 
     ⚠️ 键名：注册表里现在存的是 default_active（默认值），
        运行中的选择在 .runtime/active-model.json。
@@ -197,8 +222,7 @@ def read_server_config():
     """
     cfg = {"models_registry": None, "active_model": None,
            "server_args": None, "reasoning": None}
-    dev = Path(__file__).resolve().parents[2]
-    reg = dev / "configs" / "models.json"
+    reg = CONFIGS_DIR / "models.json"
     if reg.is_file():
         try:
             d = json.loads(reg.read_text(encoding="utf-8"))
@@ -213,7 +237,13 @@ def read_server_config():
             cfg["reasoning"] = f"读注册表失败：{e}"
 
     # ★ 运行时选择的模型（.runtime/active-model.json，不进 git）
-    rt = dev / ".runtime" / "active-model.json"
+    #
+    # ⚠️ 这里原来写的是 `dev / ".runtime" / …`，而 dev 是上面那行
+    #    `dev = Path(__file__).resolve().parents[2]` 定义的。
+    #    迁移时把那个赋值换成模块级常量，却漏了本行 ——
+    #    于是运行时 NameError: name 'dev' is not defined。
+    #    教训：换常量时要搜【整段函数】，不能只改赋值那一行。
+    rt = DEV_DIR / ".runtime" / "active-model.json"
     if rt.is_file():
         try:
             cfg["runtime_active_model"] = json.loads(
@@ -353,8 +383,7 @@ _inst_state = {
 }
 
 # 服务 PID 文件。serve.sh 与 model_manager 共用这一个文件。
-_SERVER_PID_FILE = (Path(__file__).resolve().parents[1]
-                    / "logs" / "model-server.pid")
+_SERVER_PID_FILE = SERVER_PID_FILE
 
 
 def current_server_pid():
@@ -1009,8 +1038,7 @@ def collect_interactive(cfg_base, log=None):
 
 def _read_registry_for_menu():
     """给交互菜单读注册表（模型清单 + 默认 ctx）。返回 (registry, err)"""
-    dev = Path(__file__).resolve().parents[2]
-    p = dev / "configs" / "models.json"
+    p = CONFIGS_DIR / "models.json"
     if not p.is_file():
         return None, f"找不到 {p}"
     try:
@@ -1398,9 +1426,8 @@ def verify_model_matches_config(cfg, model_info, log):
 
 
 def find_serve_sh():
-    """定位 serve.sh（本文件在 <development>/src/bench/ 下）"""
-    p = Path(__file__).resolve().parents[1] / "serve.sh"
-    return p if p.is_file() else None
+    """定位 serve.sh（用顶部的 SERVE_SH 常量，它在 <development>/src/ 下）"""
+    return SERVE_SH if SERVE_SH.is_file() else None
 
 
 def current_service_state(base_url):
@@ -1796,17 +1823,17 @@ def main():
     #      control/service_watch.py + tests/test_11_service_watch.py 覆盖，
     #      那套做法不往 run_bench 里加任何东西。
 
-    # 默认输出目录：<development>/results
+    # 默认输出目录：<development>/results（用顶部的 RESULTS_ROOT 常量）
     #
-    # ⚠️ 目录层级（本文件在 <development>/src/bench/ 下）：
-    #       parents[0]=bench [1]=src [2]=development
-    #    早先写的是 parent.parent（= src/）+"test_runs"，
-    #    迁移到 development/ 布局后会算成 <development>/src/test_runs ——
-    #    那个目录不存在、也没被 .gitignore 覆盖，一旦不带 --out 跑
-    #    就会在 src/ 下建一个野生结果目录，把仓库弄脏且数据找不着。
-    #    注意 write 时用 out_root（结果根），实际每次运行写在 out_root/<run_id>/。
-    out_root = Path(args.out) if args.out else \
-        Path(__file__).resolve().parents[2] / "results"
+    # ⚠️ 这个默认值历史上算错过两次，都是因为散着写 parents[N]：
+    #      · 早先写 parent.parent（= src/）+"test_runs"，
+    #        迁移到 development/ 布局后会算成 <development>/src/test_runs ——
+    #        那个目录不存在、也没被 .gitignore 覆盖，一旦不带 --out 跑
+    #        就会在 src/ 下建一个野生结果目录，把仓库弄脏且数据找不着。
+    #      · 本文件从 src/bench/ 挪到 tests/core/ 时，层级索引全要重算。
+    #    现在只用模块级常量，且 tests/core/test_00_paths.py 会 import 本模块
+    #    按真实表达式求值校验它，算错会立刻被测出来。
+    out_root = Path(args.out) if args.out else RESULTS_ROOT
     out_root.mkdir(parents=True, exist_ok=True)
 
     # ⭐ 编号：<标签>-<时间戳>，绝不覆盖已有结果

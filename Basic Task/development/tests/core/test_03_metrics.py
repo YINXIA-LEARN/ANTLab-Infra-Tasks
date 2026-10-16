@@ -80,8 +80,8 @@ def main():
     if not runs:
         print("⚠️ results/ 下没有带 requests.jsonl 的运行，无法测试。")
         # ⚠️ 配置目录已挪到 development/configs/（见 test_00 的落位检查）
-        print("   先跑一次： python3 ../src/bench/run_bench.py "
-              "--config ../configs/baseline-full.json")
+        print("   先跑一次： python3 tests/core/run_bench.py "
+              "--config configs/baseline-full.json")
         rep.check_true("results/ 下存在可测运行", False,
                        "没有数据就无从验证指标计算")
         return rep.finish()

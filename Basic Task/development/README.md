@@ -15,7 +15,7 @@
 |---|---|---|
 | 1 | **推理服务**：llama-server 加载 Qwen3 GGUF，GPU 全层推理，OpenAI 兼容接口 | `configs/` + 服务管理脚本 |
 | 2 | **控制层 + 前端**：管理模型服务、组装输入、流式对话、浏览测试结果 | `src/control/` `src/web/` |
-| 3 | **性能测试台**：按固定负载跑并发测试，逐请求记录指标，支持基线/优化对比 | `src/bench/` → `results/` |
+| 3 | **性能测试台**：按固定负载跑并发测试，逐请求记录指标，支持基线/优化对比 | `tests/core/` → `results/` |
 
 **设计原则**：配置和结果都落在**磁盘文件**上，而不是浏览器或内存里。
 这样每个运行都可追溯到具体的配置、输入文件和校验值。
@@ -256,7 +256,7 @@ load_model: initializing, n_slots = 4, n_ctx_slot = 32768, kv_unified = 'true'
 
 ```bash
 cd "Basic Task/development/src"
-python3 bench/run_bench.py --config ../configs/baseline-full.json --out ../results
+python3 tests/core/run_bench.py --config ../configs/baseline-full.json --out ../results
 ```
 
 **它做什么**：
@@ -355,5 +355,5 @@ results/<运行编号>/
 - [ ] 下载模型并核对 SHA256（见第四节）
 - [ ] `bash serve.sh start`，`bash serve.sh status` 应显示 health=ok
 - [ ] 浏览器打开 http://localhost:8000 ，对话页发一条消息应能流式回答
-- [ ] `python3 bench/run_bench.py --config ../configs/baseline-c1.json --out ../results`
+- [ ] `python3 tests/core/run_bench.py --config ../configs/baseline-c1.json --out ../results`
 - [ ] 结果页刷新，应能看到新出现的运行

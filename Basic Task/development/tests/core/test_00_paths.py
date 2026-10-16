@@ -107,7 +107,10 @@ def main():
         "控制层 server.py": SRC / "control" / "server.py",
         "控制层 config.py": SRC / "control" / "config.py",
         "模型注册表": DEV_DIR / "configs" / "models.json",
-        "测试程序": SRC / "bench" / "run_bench.py",
+        # ⚠️ 测试程序 2026-10-16 从 src/bench/ 挪到了 tests/core/
+        "测试程序": DEV_DIR / "tests" / "core" / "run_bench.py",
+        # src/bench/ 里剩下的共用 HTTP 客户端（控制层也用，不属于测试本身）
+        "HTTP 客户端": SRC / "bench" / "client.py",
         "前端页面": SRC / "web" / "index.html",
         "前端脚本": SRC / "web" / "app.js",
         "前端样式": SRC / "web" / "style.css",
@@ -181,20 +184,37 @@ def main():
     #
     #  ⚠️ 不要从源码文本里正则抓默认值 —— 那会把注释里的旧路径也抓出来。
     #     正确做法：import 模块，按它的真实表达式求值（踩过这个坑）。
+    #
+    #  ⚠️ 这里【不自己算 parents[N】—— 直接问 run_bench 的 RESULTS_ROOT
+    #     常量。这个文件挪过一次位置（src/bench/ → tests/core/），
+    #     凡是散着写 parents[N] 的地方都得跟着改；问常量就不用。
     print()
     print("═" * 72)
-    print(" 四、run_bench.py 的 --out 默认值（实际求值）")
+    print(" 四、run_bench.py 的结果根目录（问它的常量，不猜层级）")
     print("═" * 72)
+    _bench_dir = DEV_DIR / "tests" / "core"
     sys.path.insert(0, str(SRC))
-    sys.path.insert(0, str(SRC / "bench"))
+    sys.path.insert(0, str(_bench_dir))
     try:
         import run_bench                                  # noqa: PLC0415
-        real = (Path(run_bench.__file__).resolve().parents[2] / "results")
+        real = getattr(run_bench, "RESULTS_ROOT", None)
+        rep.check_true("run_bench 暴露了 RESULTS_ROOT 常量", real is not None,
+                       "没有这个常量就只能靠猜 parents[N]，挪位置时必错")
+        if real is None:
+            real = Path(run_bench.__file__).resolve().parents[2] / "results"
         rep.check(f"run_bench 的结果根目录 = <development>/results",
                   real.resolve(), RESULTS_DIR.resolve())
-        rep.check_true(f"结果根目录未被 git 忽略（结果要提交）",
+        rep.check_true("结果根目录未被 git 忽略（结果要提交）",
                        git_ignored(real) is False or git_ignored(real) is None,
                        "结果数据是要提交的，不应被忽略")
+        # 顺带把另外两个也查一下 —— 它们同样是"挪位置就会错"的常量
+        for cname, want in (("DEV_DIR", DEV_DIR),
+                            ("SRC_DIR", SRC),
+                            ("CONFIGS_DIR", DEV_DIR / "configs")):
+            v = getattr(run_bench, cname, None)
+            if v is not None:
+                rep.check(f"run_bench.{cname} 正确", Path(v).resolve(),
+                          want.resolve())
         print(f"  实际求值：{real}")
     except Exception as e:                                # noqa: BLE001
         rep.check_true("能 import run_bench 并求出结果根目录", False,

@@ -76,7 +76,7 @@ python3 test_11_service_watch.py
 
 ```bash
 cd ../src
-python3 bench/run_bench.py --config ../configs/baseline-full.json
+python3 core/run_bench.py --config ../../configs/baseline-full.json
 ```
 
 ---
