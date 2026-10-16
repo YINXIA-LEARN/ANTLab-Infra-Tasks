@@ -4,22 +4,73 @@
 
 ---
 
+## 〇、目录怎么分的
+
+```
+tests/
+├─ _testlib.py                  共用骨架（★ 故意放在根，别挪）
+├─ run_all.sh                   跑全部
+├─ README.md                    本文件
+├─ test_11_service_watch.py     服务监测与「测试期间自动重启」
+└─ core/                        功能与数据检查
+   ├─ README.md
+   ├─ test_00_paths.py
+   ├─ test_01_input.py
+   ├─ test_02_token_counting.py
+   ├─ test_03_metrics.py
+   ├─ test_04_concurrency.py
+   ├─ test_08_output_code.py
+   ├─ test_09_web.py
+   └─ test_10_midstop.py
+```
+
+**`test_11` 单独留在根**：它测的是**服务监测与自动重启**这套功能，
+与其他测试不是一类 —— 它一条运行数据都不读，全部靠调 `/api/service/*`
+看真实行为；而 `core/` 里的都是**读 `results/` 下的原始记录**做检查。
+
+**⚠️ `_testlib.py` 为什么不能放进 `core/`**：
+
+它的路径锚点是按**自己的位置**向上推算的：
+
+```python
+TESTS_DIR   = Path(__file__).resolve().parent     # tests/
+DEV_DIR     = TESTS_DIR.parent                    # development/
+RESULTS_DIR = DEV_DIR / "results"
+```
+
+放在 `tests/` 时 `DEV_DIR` 正好是 `development/`；一旦挪进 `tests/core/`，
+`DEV_DIR` 会变成 `tests/`，`RESULTS_DIR` 就指向
+`development/tests/results` —— **不存在**，所有读 `results/` 的测试一起失灵。
+
+所以 `core/` 里的测试用**两行** `sys.path.insert` 把上两层都加进来：
+
+```python
+sys.path.insert(0, str(Path(__file__).resolve().parent))          # core/
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # tests/ ← _testlib 在这
+```
+
+---
+
 ## 一、怎么跑
 
 ```bash
 cd development/tests
-bash run_all.sh            # 跑全部，退出码 = 失败个数
+bash run_all.sh            # 跑全部（递归找两处），退出码 = 失败个数
 ```
 
-单个测试：
+单个测试（**可以在任意目录跑**，路径是按 `__file__` 算的）：
 
 ```bash
-python3 test_03_metrics.py     # 退出码 0 通过 / 1 有失败 / 2 脚本自身出错
+python3 core/test_03_metrics.py    # 退出码 0 通过 / 1 有失败 / 2 脚本自身出错
+python3 test_11_service_watch.py
 ```
 
 **依赖**：Python 3.12，**零第三方包**（全部标准库）。
+
 **前置**：`results/` 下至少要有一次带 `requests.jsonl` 的运行。
-不需要服务在跑 —— 所有测试都是读文件推断，不连端口。
+
+**⚠️ 但 `test_11` 例外**：它需要控制层在跑（要调 `/api/service/*`），
+`core/` 里那 8 个不需要 —— 它们是读文件推断，不连端口。
 
 **若 `results/` 是空的**（刚 clone 下来），先跑一次：
 
@@ -32,17 +83,21 @@ python3 bench/run_bench.py --config ../configs/baseline-full.json
 
 ## 二、测验清单
 
-| 文件 | 测什么 | 独立来源 | 项数 |
-| --- | --- | --- | ---: |
-| `test_00_paths.py` | 路径解析 + 写入是否落在 `.gitignore` 内 | 文件系统 + `git check-ignore` | 38 |
-| `test_01_input.py` | 输入组织、50,000 token 上限、模板开销、任务构成 | **题目规定的 50,000 上限** | 43 |
-| `test_02_token_counting.py` | **流式块 vs token** | 两个独立来源：客户端数块 / 服务端报 token | 202 |
-| `test_03_metrics.py` | TTFT / TPOT / 吞吐 / P95 的计算 | **另写一套算法重算**（见 `_testlib.py`） | 347 |
-| `test_04_concurrency.py` | 并发档、请求数、排队现象 | 配置声明 vs 实际记录 | 24 |
-| `test_08_output_code.py` | **编程输出运行验证** | **真编译、真执行** | 6 |
-| `test_09_web.py` | 前端 6 项展示能力是否齐备 | **题目原文列的 6 项** | 42 |
+| 文件 | 测什么 | 独立来源 |
+| --- | --- | --- |
+| `core/test_00_paths.py` | 路径解析 + 写入是否落在 `.gitignore` 内 + **配置落位** | 文件系统 + `git check-ignore` |
+| `core/test_01_input.py` | 输入组织、50,000 token 上限、模板开销、任务构成 | **题目规定的 50,000 上限** |
+| `core/test_02_token_counting.py` | **流式块 vs token** | 两个独立来源：客户端数块 / 服务端报 token |
+| `core/test_03_metrics.py` | TTFT / TPOT / 吞吐 / P95 的计算 | **另写一套算法重算**（见 `_testlib.py`） |
+| `core/test_04_concurrency.py` | 并发档、请求数、排队现象 | 配置声明 vs 实际记录 |
+| `core/test_08_output_code.py` | **编程输出运行验证** | **真编译、真执行** |
+| `core/test_09_web.py` | 前端 6 项展示能力是否齐备 | **题目原文列的 6 项** |
+| `core/test_10_midstop.py` | 中途被停止的测试，数据还在不在 | `requests.jsonl` 行数 vs `run-state.json` 的 state |
+| `test_11_service_watch.py` | 自动重启的**规则**（只在测试运行中动作） | 调 `/api/service/*` 看真实行为 |
 
-**合计 702 项断言。**（运行数据变多时断言数会跟着涨 —— 很多检查是逐运行、逐请求展开的。）
+**合计约 2100 项断言**（随 `results/` 里的运行数量增长 ——
+很多检查是逐运行、逐请求展开的）。
+
 
 ### 原计划里被移除的部分
 
@@ -52,10 +107,10 @@ python3 bench/run_bench.py --config ../configs/baseline-full.json
 | `test_06_recovery.sh` | 服务退出 → 检测 → 重启 → 就绪 → 恢复后验证 | **移除**（见下） |
 | `test_07_output_office.py` | 办公输出检查（事实/条款/格式） | 未做，需人工判定为主 |
 
-#### ⚠️ 为什么移除 test_05 / test_06
+#### ⚠️ 为什么移除 test_05 / test_06（后来又部分做了回来）
 
 这两个测试属于**「主动制造异常」**一类：杀掉服务、注入超时、伪造失败请求。
-它们依赖一套配套功能（后台监测 + 自动重启 + 测试钩子），而**那套功能本身有害**：
+它们依赖一套配套功能（后台监测 + 自动重启 + 测试钩子），而**当时那套功能有害**：
 
 ```
 它分不清两种情况：
@@ -71,18 +126,31 @@ python3 bench/run_bench.py --config ../configs/baseline-full.json
           一跑测试脚本就频繁掉线，恢复日志里每 2~3 分钟一条。
 ```
 
-**根因**：没有可靠信号区分"有意重启"与"真崩"。`serve.sh` 是独立脚本，
-它重启服务时不会通知控制层。**在解决这个问题之前，自动重启只会添乱。**
+**根因**：没有可靠信号区分"有意重启"与"真崩"。
 
-所以移除了：`control/recovery.py`、`/api/recovery/*` 接口、控制层启动时的
-`recovery.init()`、`run_bench.py` 里的运行中监测线程、以及
-`--cancel-after` / `--timeout-override` 两个测试钩子。
+##### 后来的解决办法：加一道"总闸"
 
-**保留的**：`client.py` 里的 `cancel_event` 取消能力（那是纯粹的客户端能力，
+不再试图去【分辨】那次掉线是有意还是意外 —— 换个思路，**只在明确的时间窗内动作**：
+
+```
+测试运行中   → 服务掉了是意外，救它
+其余时间     → 只提示，绝不动手
+             （那多半是有人故意停的 / 换模型）
+```
+
+这条规则把"分辨"这件事从监测器转移到了时间窗上，**不需要任何额外信号**。
+另外还有一道**宽限期**（默认 90 秒）兜住时序问题：服务在测试中途挂掉时，
+剩下的请求会很快集体失败、测试提前退出，等监测器探活时已经"没有测试在跑"了 ——
+没有宽限期就会眼睁睁看着不去救（这是实测踩出来的）。
+
+**现在这套功能回来了**，对应 `src/control/service_watch.py` +
+服务页的开关 + `test_11_service_watch.py`。开关**默认关**。
+
+**仍然移除的**：`run_bench.py` 里的 `--cancel-after` / `--timeout-override`
+两个测试钩子（往正式测试程序里塞"主动注入失败"的开关，弊大于利）。
+
+**保留的**：`client.py` 里的 `cancel_event` 取消能力（纯粹的客户端能力，
 不碰服务进程，可用代码直接调用）。
-
-**将来要做服务恢复，必须先解决**：怎么让"有意重启"这件事被控制层知道
-（例如重启前写一个"我要重启了"的标记文件，监测器看到就先暂停判定）。
 
 ---
 
@@ -114,20 +182,22 @@ python3 bench/run_bench.py --config ../configs/baseline-full.json
 
 | 边界 | 样例怎么造 | 在哪个测试 | 覆盖状态 |
 | --- | --- | --- | --- |
-| **流式块 vs token** | 用真实记录（块数与 token 数天然不等） | `test_02` | ✅ **已覆盖**（90 条里 0 条相等） |
-| **请求失败后的计数** | 需造失败请求 | — | ❌ **未覆盖**（原 test_05，已移除） |
-| **服务退出** | 需 `kill` 服务进程 | — | ❌ **未覆盖**（原 test_06，已移除） |
+| **流式块 vs token** | 用真实记录（块数与 token 数天然不等） | `core/test_02` | ✅ **已覆盖**（90 条里 0 条相等） |
+| **请求失败后的计数** | 造失败/超时/取消/截断记录 | `core/test_03` | 🟡 **部分覆盖** —— 计数与分类有断言，但"失败后是否该重试"没有 |
+| **服务退出** | `kill` 服务进程 / 服务页点停止 | `test_11` + 实测 | ✅ **已覆盖**（检测 → 自动重启 → 就绪确认 → 恢复后验证，见服务事件时间线） |
 | **有上限的重试** | 功能未实现 | — | ❌ **未覆盖** |
 
-**⚠️ 这 4 条边界里，目前只覆盖了第 1 条。** 另外 3 条都依赖"主动制造异常"，
-而那正是被移除的能力。**报告里应当如实写明这一点**，而不是含糊过去：
+**⚠️ 4 条边界里覆盖了 2 条、部分覆盖 1 条、未覆盖 1 条。** 报告里应如实写明：
 
-> 题目要求围绕 4 类关键边界设计样例。本项目覆盖了"流式块与 token 的区别"
-> （`test_02`，实测 90 条记录中块数与 token 数【从无相等】）。
-> 另外 3 类（请求失败后的计数、服务退出、有上限的重试）需要主动制造异常，
-> 而制造异常所需的服务监测与自动重启功能在实测中表现出更严重的问题
-> （无法区分"有意重启"与"真崩"，导致服务被反复停起），已移除。
-> 因此这 3 类边界【尚未覆盖】。
+> 题目要求围绕 4 类关键边界设计样例。
+> · **流式块与 token 的区别** —— 已覆盖（`core/test_02`，实测块数与 token 数从无相等）
+> · **服务退出** —— 已覆盖。服务页停掉模型服务后，系统在 2~4 秒内检测到、
+>   自动拉起（约 2 秒）、确认就绪（核对模型与上下文与注册表一致）、
+>   并真发一个请求验证恢复；全过程记进服务事件时间线与运行目录的
+>   `service-starts.jsonl`
+> · **请求失败后的计数** —— 部分覆盖。`core/test_03` 断言了各类状态的计数
+>   与分类完备性（不重不漏），但"失败后重试几次"这件事没有
+> · **有上限的重试** —— **未覆盖**，该功能尚未实现
 
 ### `test_02` 抓到的实测数字
 
@@ -145,13 +215,13 @@ python3 bench/run_bench.py --config ../configs/baseline-full.json
 
 | 边界 | 说明 | 在哪 |
 | --- | --- | --- |
-| 单位边界（秒/毫秒） | 差 1000 倍，算错所有指标全偏 | `test_03` |
-| 除零边界（`output_tokens==1`） | TPOT 分母 `(n-1)` 为 0 | `test_03` / `test_02` |
-| 两种 TPOT 口径 | 排除首 token 与包含首 token 必须不同 | `test_03` |
-| 上下文档位边界 | 并发 > slot 数（4）时 TTFT 抬高 | `test_04` |
-| **输出截断** ⭐ | `output_tokens == max_tokens` → 是截断不是能力差 | `test_08` |
-| 页签角标 | 已实现的页签不该挂"未实现" | `test_09` |
-| 静态资源路径 | 必须 `/static/` 开头（后端只挂这个前缀） | `test_09` |
+| 单位边界（秒/毫秒） | 差 1000 倍，算错所有指标全偏 | `core/test_03` |
+| 除零边界（`output_tokens==1`） | TPOT 分母 `(n-1)` 为 0 | `core/test_03` / `core/test_02` |
+| 两种 TPOT 口径 | 排除首 token 与包含首 token 必须不同 | `core/test_03` |
+| 上下文档位边界 | 并发 > slot 数（4）时 TTFT 抬高 | `core/test_04` |
+| **输出截断** ⭐ | `output_tokens == max_tokens` → 是截断不是能力差 | `core/test_08` |
+| 页签角标 | 已实现的页签不该挂"未实现" | `core/test_09` |
+| 静态资源路径 | 必须 `/static/` 开头（后端只挂这个前缀） | `core/test_09` |
 
 ---
 
@@ -191,12 +261,14 @@ P03（要求实现 aggregate_by_owner + 至少 5 个测试示例）
 
 | 测试 | 检查的运行 | 检查的提示词编号 | 输出在 |
 | --- | --- | --- | --- |
-| `test_01` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/prompt-index.json` |
-| `test_02` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/requests.jsonl` |
-| `test_03` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/requests.jsonl` + `summary.json` |
-| `test_04` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/requests.jsonl` |
-| `test_08` | 全部可用运行 | **P03 / P04 / C01 / C02** | `results/<run>/requests.jsonl` 的 `output_text` |
-| `test_00` / `test_09` | 不依赖运行数据 | — | 源码与前端文件 |
+| `core/test_01` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/prompt-index.json` |
+| `core/test_02` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/requests.jsonl` |
+| `core/test_03` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/requests.jsonl` + `summary.json` |
+| `core/test_04` | 全部可用运行 | **P01–C02**（10 个） | `results/<run>/requests.jsonl` |
+| `core/test_08` | 全部可用运行 | **P03 / P04 / C01 / C02** | `results/<run>/requests.jsonl` 的 `output_text` |
+| `core/test_10` | 被中途停止的运行 | 各自已完成的那些 | `results/<run>/requests.jsonl` + `run-state.json` |
+| `test_11` | 不依赖运行数据（连 `/api/service/*`） | — | `results/<run>/service-starts.jsonl` |
+| `core/test_00` / `core/test_09` | 不依赖运行数据 | — | 源码与前端文件 |
 
 **运行编号与路径**：见 `results/README.md` 与各次运行目录下的 `meta.json`。
 报告引用这些结论时，请标注运行编号，便于回溯原始记录。
@@ -207,8 +279,9 @@ P03（要求实现 aggregate_by_owner + 至少 5 个测试示例）
 
 | 文件 | 作用 |
 | --- | --- |
-| `_testlib.py` | 共用骨架：报告器、读结果、**独立实现的指标算法** |
-| `run_all.sh` | 批量跑，汇总退出码 |
+| `_testlib.py` | 共用骨架：报告器、读结果、**独立实现的指标算法**（★ 留在 `tests/` 根，别挪进 `core/`） |
+| `run_all.sh` | 批量跑，`find` 递归发现两处的测试，汇总退出码 |
+| `core/README.md` | 子目录说明（为什么不放 `_testlib`） |
 
 `_testlib.py` 以 `_` 开头，是为了让"按 `test_*.py` 收集"不会把它当测试。
 
@@ -221,7 +294,8 @@ P03（要求实现 aggregate_by_owner + 至少 5 个测试示例）
 
 | 限制 | 说明 |
 | --- | --- |
-| 依赖 `results/` 有数据 | 空的 `results/` 只能跑 `test_00` / `test_09` |
+| 依赖 `results/` 有数据 | 空的 `results/` 只能跑 `core/test_00` / `core/test_09` |
+| **`test_11` 需要控制层在跑** | 它调 `/api/service/*`；控制层不在时会跳过并说明，不判失败 |
 | 并发覆盖靠跨运行汇总 | 单次小型运行（如 `baseline-c1`）本来就不含多并发，不按它判 |
 | 办公输出未自动检测 | 事实准确性与条款引用需人工对照原文（见"原计划里被移除的部分"） |
-| `test_08` 不做质量判定 | 小模型答不好是常态；它判的是**检查流程本身**能不能跑通 |
+| `core/test_08` 不做质量判定 | 小模型答不好是常态；它判的是**检查流程本身**能不能跑通 |

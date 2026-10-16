@@ -46,7 +46,12 @@ test_02_token_counting.py —— 流式块与 token 的区别
 import sys
 from pathlib import Path
 
+# ⚠️ 本文件在 tests/core/ 下，_testlib.py 在上一层 tests/。
+#    两层都要加：本层用于同目录的模块，上一层用于 _testlib。
+#    （_testlib 必须留在 tests/ —— 它的 DEV_DIR/RESULTS_DIR
+#      是按自己位置算的，挪下来会整体错一层）
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from _testlib import Report, load_run, list_runs, run, successful   # noqa: E402
 
 
