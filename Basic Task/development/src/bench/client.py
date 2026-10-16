@@ -47,7 +47,8 @@ class RequestResult:
         self.d = {
             "request_id": req_id,
             "task_id": task_id,
-            "status": None,          # success / failed / timeout / cancelled
+            "status": None,          # success / truncated / incomplete
+                                     # / failed / timeout / cancelled / harness_error
             "error_type": None,
             "error_message": None,
 
@@ -251,6 +252,27 @@ def run_one(base_url, messages, max_tokens=2048, temperature=0.0,
             res["error_type"] = "Cancelled"
             res["error_message"] = (
                 f"请求被主动取消（读到第 {cancel_at_chunk} 个块时）")
+        elif res["finish_reason"] == "length":
+            # ⭐ 输出撞上 max_tokens 上限 —— 单独一类，不算成功也不算失败。
+            #
+            #  为什么不能算成功：
+            #    服务端确实给了结束标记，请求"技术上"跑完了；
+            #    但它是【被硬截断】的 —— 输出可能停在句子、代码字符串、
+            #    括号的中间。实测 P03 就是断在字符串里（引号没闭合），
+            #    生成的代码根本没法运行。
+            #    如果算成功，成功率会是 100%，而"输出能不能用"完全是另一回事。
+            #
+            #  为什么不算 failed：
+            #    它不是错误 —— 服务没坏、请求没被拒，只是配置的上限到了。
+            #    混进 failed 会让"服务稳定性"和"配置是否够用"两件事分不开。
+            #
+            #  所以单独立一类，计数与口径都单独处理（见 run_bench 的汇总）。
+            res["status"] = "truncated"
+            res["error_type"] = "Truncated"
+            res["error_message"] = (
+                f"输出达到 max_tokens 上限被截断（生成 {res['output_tokens']} "
+                f"个 token）。这段输出不完整，代码类任务很可能无法直接运行。"
+                f"如需完整输出请调大配置里的 max_tokens。")
         elif res["finish_reason"] is None and not saw_done:
             res["status"] = "incomplete"
             res["error_type"] = "NoFinishReason"

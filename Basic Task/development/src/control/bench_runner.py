@@ -374,6 +374,12 @@ def write_run_config(params, template_name=None):
     base["server_ctx"] = int(params["ctx"])
     base["kv_type_k"] = params["ctk"] or "f16"
     base["kv_type_v"] = params["ctv"] or "f16"
+    # ⭐ 输出上限：网页可以覆盖模板里的值。
+    #    ⚠️ 早先这里是写死的 2048，网页上根本没有这个字段 ——
+    #       结果是"输出被截断"这件事既看不见也调不了。
+    #       现在从 params 取（start() 里已经校验过范围）。
+    if params.get("max_tokens"):
+        base["max_tokens"] = int(params["max_tokens"])
 
     # note 自动生成 —— 只写本轮参数，天然满足 note 规范
     base["note"] = (
@@ -441,6 +447,25 @@ def start(params, template_name=None):
         if v not in ("f32", "f16", "bf16", "q8_0", "q5_0", "q4_1", "q4_0",
                      "iq4_nl", "q5_1"):
             errs.append(f"{k} 取值不支持：{v}")
+    # ⭐ 输出上限：必须 < 上下文。
+    #    为什么这条校验很重要：max_tokens 是【纯输出】的上限，
+    #    而上下文里还要放输入。如果 max_tokens >= ctx，
+    #    那输入一进去就超了，服务端直接 400：
+    #        request (N tokens) exceeds the available context size
+    #    整批请求全废，白跑一轮。
+    max_tokens = None
+    if params.get("max_tokens") not in (None, ""):
+        try:
+            max_tokens = int(params["max_tokens"])
+            if not (64 <= max_tokens <= 40960):
+                errs.append("输出上限要在 64 ~ 40960 之间")
+            elif ctx is not None and max_tokens >= ctx:
+                errs.append(
+                    f"输出上限 {max_tokens} 必须小于上下文 {ctx}"
+                    f"（上下文里还要放输入，否则服务端会拒绝请求）")
+        except (TypeError, ValueError):
+            errs.append("输出上限必须是整数")
+            max_tokens = None
     if errs:
         return False, {"error": "bad_params", "message": "；".join(errs)}
     if not BENCH_PY.is_file():
@@ -477,7 +502,8 @@ def start(params, template_name=None):
     # ── ⑤ 生成配置文件 ────────────────────────────────────────────────
     cfg_path, cfg_body, cerr = write_run_config(
         {"model_file": params["model_file"], "label": label, "ctx": ctx,
-         "ctk": params.get("ctk") or "f16", "ctv": params.get("ctv") or "f16"},
+         "ctk": params.get("ctk") or "f16", "ctv": params.get("ctv") or "f16",
+         "max_tokens": max_tokens},
         template_name=template_name)
     if cerr:
         return False, {"error": "config_write_failed", "message": cerr}
@@ -512,6 +538,10 @@ def start(params, template_name=None):
         "ctx": ctx,
         "ctk": params.get("ctk") or "f16",
         "ctv": params.get("ctv") or "f16",
+        # 记下输出上限 —— 它是"输出会不会被截断"的直接原因，
+        # 排查"这次为什么有 truncated"时要靠它
+        "max_tokens": (int(params["max_tokens"])
+                       if params.get("max_tokens") else None),
         "config_path": str(cfg_path),
         "config_name": cfg_path.name,
         "cmdline": " ".join(cmd),
@@ -694,6 +724,9 @@ def form_data():
                 "n_requests": (len(d.get("task_ids") or [])
                                * (d.get("rounds") or 0)
                                * len(d.get("concurrency") or [])),
+                # ⭐ 模板里的输出上限也要给前端 —— 网页上这个字段的默认值
+                #    就取它，保证"不改就是原来的行为"
+                "max_tokens": d.get("max_tokens"),
                 "note": d.get("note"),
             })
 

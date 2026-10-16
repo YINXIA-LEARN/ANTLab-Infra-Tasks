@@ -420,6 +420,10 @@ pre.output{
 .st-incomplete{color:#f59e0b}
 .st-harness_error{color:#c084fc}
 .st-success{color:#4ade80}
+/* 截断：输出撞上 max_tokens 上限。用橙色 + 加粗，跟"成功"的绿色明显区分 ——
+   它最危险的地方是【看着像正常结束】，所以必须一眼能看出来。 */
+.st-truncated{color:#fb923c;font-weight:600}
+.st-cancelled{color:#94a3b8}
 
 .modal.wide{width:min(1000px,94vw)}
 .req-tools{font-size:11px}

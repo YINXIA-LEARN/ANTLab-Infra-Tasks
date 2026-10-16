@@ -537,8 +537,12 @@ function fmtTime(iso) {
 
 function fmtStatus(status) {
   const map = {
-    success: ['✅', '成功'], failed: ['❌', '失败'],
-    timeout: ['⏰', '超时'], incomplete: ['⚠️', '中断'],
+    success: ['✅', '成功'],
+    // ⭐ truncated（输出撞上 max_tokens 被截断）单独一类：
+    //   它技术上跑完了，但输出残缺 —— 不算成功，也不算失败
+    truncated: ['✂️', '截断'],
+    failed: ['❌', '失败'], timeout: ['⏰', '超时'],
+    incomplete: ['⚠️', '中断'],
     cancelled: ['⏹', '取消'], harness_error: ['🐞', '程序错误'],
   };
   const [icon, text] = map[status] || ['?', status || '未知'];
@@ -601,6 +605,18 @@ function filteredRuns() {
   });
 }
 
+/* 运行状态图标。
+   ⚠️ 早先只有"ok → ✅，其它 → ⚠️"两档，于是"中途被停止"和
+      "目录坏了"长得一样。现在分开：
+        ok         ✅ 完整
+        aborted    ⏸  测试未完成（中途被停止）—— 有部分数据可看
+        running    ⏳ 正在跑
+        incomplete ⚠️ 数据缺失（可能不是本程序产生的目录）          */
+function runStatusIcon(status) {
+  const m = { ok: '✅', aborted: '⏸', running: '⏳', incomplete: '⚠️' };
+  return m[status] || '⚠️';
+}
+
 function renderRunsList() {
   const box = $('runs-list');
   if (!box) return;
@@ -631,7 +647,7 @@ function renderRunsList() {
           <div class="run-id">${esc(r.run_id)}</div>
         </div>
       </div>
-      <div class="run-line">${r.status === 'ok' ? '✅' : '⚠️'} ${esc(r.status_text || '')}</div>
+      <div class="run-line">${runStatusIcon(r.status)} ${esc(r.status_text || '')}</div>
       <div class="run-line dim">
         ${esc(r.model || '—')} · ctx ${esc(r.n_ctx ?? '—')} · ${esc(r.total_slots ?? '—')} slot
         ${r.vram_after_load_mib ? ' · 显存 ' + esc(r.vram_after_load_mib) + ' MiB' : ''}
@@ -832,17 +848,23 @@ async function loadRequests(offset = 0) {
     if (j.error) throw new Error(j.message);
     reqPage.offset = j.offset;
     reqPage.total = j.total;
-    renderRequestRows(j.rows);
+    renderRequestRows(j.rows, j.note);
   } catch (e) {
     if (wrap) wrap.innerHTML = `<div class="notice notice-err">加载失败：${esc(e.message)}</div>`;
   }
 }
 
-function renderRequestRows(rows) {
+function renderRequestRows(rows, note) {
   const wrap = $('req-table-wrap');
   if (!wrap) return;
+  // ⚠️ 不完整运行的提示要放在表格【上面】——
+  //    否则用户看到几十条记录会以为这就是全部结果。
+  const noteHtml = note
+    ? `<div class="notice notice-warn" style="margin-bottom:10px">${esc(note)}</div>`
+    : '';
   if (!rows.length) {
-    wrap.innerHTML = '<div class="hint" style="padding:12px">没有记录</div>';
+    wrap.innerHTML = noteHtml
+      + '<div class="hint" style="padding:12px">没有记录</div>';
     return;
   }
   const trs = rows.map(r => `
@@ -861,7 +883,7 @@ function renderRequestRows(rows) {
 
   const from = reqPage.offset + 1;
   const to = reqPage.offset + rows.length;
-  wrap.innerHTML = `
+  wrap.innerHTML = noteHtml + `
     <div class="pager">
       <button class="btn btn-tiny" id="req-prev" ${reqPage.offset > 0 ? '' : 'disabled'}>← 上一页</button>
       <span class="dim">${from}–${to} / ${reqPage.total}</span>
@@ -973,10 +995,13 @@ async function renderErrorsTab() {
     if (!d.n) {
       body.innerHTML = `
         <div class="rt-head"><div class="rt-title">错误记录</div></div>
+        ${d.note ? `<div class="notice notice-warn">${esc(d.note)}</div>` : ''}
         <div class="notice notice-ok">✅ 本次运行没有失败、超时或中断的请求</div>
         <div class="rt-note">
-          状态分类：<b>成功</b>（拿到 finish_reason）／<b>中断</b>（流在结束标记前断开）／
-          <b>失败</b>（HTTP 错误）／<b>超时</b>／<b>程序错误</b>（测试程序自身 bug）。
+          状态分类：<b>成功</b>（自然跑完）／<b>✂️ 截断</b>（输出撞上 max_tokens 上限，
+          输出残缺 —— <b>不算成功也不算失败</b>，是配置上限问题）／
+          <b>中断</b>（流在结束标记前断开）／<b>失败</b>（HTTP 错误）／<b>超时</b>／
+          <b>程序错误</b>（测试程序自身 bug）。
           只有第一类计入成功率与延迟统计。
         </div>`;
       return;
@@ -1254,8 +1279,30 @@ function benchValues() {
     ctx: parseInt($('bench-ctx')?.value || '0', 10),
     ctk: split ? ($('bench-ctk')?.value || 'f16') : kv,
     ctv: split ? ($('bench-ctv')?.value || 'f16') : kv,
+    // 输出上限：不填就用 2048（与后端默认一致）
+    max_tokens: parseInt($('bench-max-tokens')?.value || '2048', 10),
     label: ($('bench-label')?.value || '').trim(),
   };
+}
+
+/* 输出上限变了吗 → 提示边界（它必须小于上下文，否则输入+输出必然超上限） */
+function benchRenderMaxTokensHint() {
+  const el = $('bench-max-tokens-hint');
+  const mt = parseInt($('bench-max-tokens')?.value || '0', 10);
+  const ctx = parseInt($('bench-ctx')?.value || '0', 10);
+  if (!el) return;
+  const base = '单个请求最多生成多少个 token。<b>达到上限会被硬截断</b> —— '
+    + '<code>finish_reason=length</code>，输出可能停在句子或代码中间。';
+  if (!mt || !ctx) { el.innerHTML = base; return; }
+  if (mt >= ctx) {
+    el.innerHTML = `<span style="color:var(--err)">⚠️ 输出上限 ${mt} ≥ 上下文 ${ctx}：`
+      + `输入还没算就已经超了，请求会被服务端拒绝（HTTP 400）。请调小。</span>`;
+  } else if (mt > ctx * 0.5) {
+    el.innerHTML = `<span style="color:var(--warn)">⚠️ 输出上限 ${mt} 占上下文 ${ctx} 的 `
+      + `${Math.round(mt / ctx * 100)}%：长输入的任务（D01/D03 等）会没有足够空间。</span>`;
+  } else {
+    el.innerHTML = base;
+  }
 }
 
 /* ── 加载表单数据 ─────────────────────────────────────────────────────── */
@@ -1318,6 +1365,8 @@ function benchFillSelects() {
     else if (live && [...ms.options].some(o => o.value === live)) ms.value = live;
   }
 
+  // 输出上限由 benchRenderPreview() 统一处理（含"用户改过就不覆盖"的规则）
+
   // 上下文（默认跟服务当前一致）
   const cs = $('bench-ctx');
   if (cs) {
@@ -1368,6 +1417,14 @@ function benchRenderPreview() {
   const v = benchValues();
   const t = (benchForm.templates || []).find(x => x.name === v.template) || {};
   const nReq = (t.n_tasks || 0) * (t.rounds || 0) * ((t.concurrency || []).length);
+  // 切换模板时把该模板的输出上限带出来。
+  // ⚠️ 只在"用户没改过"时覆盖：用一个 dataset 标记记住是否手改过，
+  //    否则用户填了 4096、一选模板就被打回 2048，很难用。
+  const mtEl = $('bench-max-tokens');
+  if (mtEl && t.max_tokens && mtEl.dataset.touched !== '1') {
+    mtEl.value = t.max_tokens;
+    v.max_tokens = parseInt(t.max_tokens, 10);
+  }
   const rows = [
     ['负载定义', t.name || '—'],
     ['任务 × 轮次', `${t.n_tasks ?? '—'} 个 × ${t.rounds ?? '—'} 轮`],
@@ -1376,12 +1433,15 @@ function benchRenderPreview() {
     ['模型', v.model_file || '—'],
     ['上下文', `${v.ctx} token（共享池）`],
     ['KV 精度', `K=${v.ctk}  V=${v.ctv}`],
+    ['输出上限', `${v.max_tokens} token`
+      + (v.max_tokens >= v.ctx ? '  ⚠️ ≥ 上下文！' : '')],
     ['运行标签', v.label || '（必填）'],
     ['将生成的编号', v.label ? `${v.label}-<时间戳>` : '—'],
   ];
   box.innerHTML = rows.map(([k, val]) =>
     `<tr><td class="dim">${esc(k)}</td><td class="mono">${esc(val)}</td></tr>`).join('');
   benchRenderService();
+  benchRenderMaxTokensHint();      // 输出上限与上下文的边界提示
 }
 
 /* ── 服务状态：要不要重启 ─────────────────────────────────────────────── */
@@ -1441,6 +1501,14 @@ async function benchStart() {
   if (!v.label) { toast('请填运行标签'); return; }
   if (!/^[A-Za-z0-9._\-]+$/.test(v.label)) {
     toast('标签只能含字母数字和 - _ .'); return;
+  }
+  // ⚠️ 输出上限必须小于上下文 —— 否则输入还没算就已经超了，
+  //    服务端会直接 400（exceed_context_size_error），整轮请求全废。
+  if (!Number.isFinite(v.max_tokens) || v.max_tokens < 256) {
+    toast('输出上限要不小于 256'); return;
+  }
+  if (v.max_tokens >= v.ctx) {
+    toast(`输出上限 ${v.max_tokens} 不能大于等于上下文 ${v.ctx}`); return;
   }
   const t = (benchForm?.templates || []).find(x => x.name === v.template) || {};
   const nReq = (t.n_tasks || 0) * (t.rounds || 0) * ((t.concurrency || []).length);
@@ -1647,7 +1715,7 @@ async function benchCleanLeftovers() {
 
 function initBench() {
   ['bench-template', 'bench-model', 'bench-ctx', 'bench-kv',
-   'bench-ctk', 'bench-ctv', 'bench-label'].forEach(id => {
+   'bench-ctk', 'bench-ctv', 'bench-label', 'bench-max-tokens'].forEach(id => {
     const el = $(id);
     if (el) {
       el.addEventListener('change', benchRenderPreview);
@@ -1662,6 +1730,12 @@ function initBench() {
   $('btn-bench-run')?.addEventListener('click', benchStart);
   $('btn-bench-stop')?.addEventListener('click', benchStop);
   $('btn-clean-leftovers')?.addEventListener('click', benchCleanLeftovers);
+
+  // 记住"用户手改过输出上限" —— 之后切模板就不再覆盖它
+  $('bench-max-tokens')?.addEventListener('input', () => {
+    const el = $('bench-max-tokens');
+    if (el) el.dataset.touched = '1';
+  });
 
   benchLoadForm();
 }

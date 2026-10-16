@@ -197,6 +197,16 @@
           </div>
 
           <label class="field">
+            <span>输出上限 max_tokens</span>
+            <input type="number" id="bench-max-tokens" value="2048"
+                   min="256" max="8192" step="256">
+          </label>
+          <p class="hint" id="bench-max-tokens-hint">
+            单个请求最多生成多少个 token。<b>达到上限会被硬截断</b> ——
+            <code>finish_reason=length</code>，输出可能停在句子或代码中间。
+          </p>
+
+          <label class="field">
             <span>运行标签</span>
             <input type="text" id="bench-label" placeholder="例如 baseline-web">
           </label>

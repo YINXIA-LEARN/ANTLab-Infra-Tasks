@@ -32,8 +32,26 @@ from pathlib import Path
 
 from .logutil import log
 
-# 结果根目录：<development>/results
-RUNS_ROOT = Path(__file__).resolve().parent.parent.parent / "results"
+# ══════════════════════════════════════════════════════════════════════════
+#  结果根目录
+#
+#  ⚠️⚠️ 这里曾经是一个【一直没被发现】的 bug：
+#     原值 parent.parent / "test_runs"，也就是 <development>/src/test_runs ——
+#     那是文件布局迁移【之前】的位置。迁移到 development/results 之后，
+#     这个常量没跟着改。
+#
+#     为什么一直没被发现：目录列表接口 bench_store.list_runs() 读的是
+#     runs.json 这个【登记表文件】（它会被 run_bench 写进 RUNS_ROOT），
+#     所以列表照常显示；而凡是需要"真的去读某个运行目录"的接口
+#     （逐请求记录、错误记录、单条详情、GPU 采样）全部 404：
+#         运行目录不存在：<run_id>
+#
+#     路径层级：本文件在 <development>/src/control/ 下
+#         parents[0]=control  [1]=src  [2]=development
+#     与 bench_runner.py 里的 _DEV 保持一致。
+# ══════════════════════════════════════════════════════════════════════════
+_DEV = Path(__file__).resolve().parents[2]
+RUNS_ROOT = _DEV / "results"
 
 # run_id 只允许这些字符（它同时是目录名，必须防止路径穿越）
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9._\-]+$")
@@ -233,10 +251,61 @@ def _describe_run_dir(d, reg_entry):
         item["by_concurrency_brief"] = brief
 
     # ── 状态判定 ──
-    if missing:
+    #
+    # ⚠️ 这里有三种情况，早先全归成"数据不完整"一句话，
+    #    结果"中途被停的测试"在界面上只显示一个报错，看不到任何请求。
+    #    现在按 run-state.json / summary.json 的 state 字段细分：
+    #        finished         正常跑完
+    #        aborted          中途被停止（有已完成的部分，值得看）
+    #        running          正在跑（也有已完成的部分）
+    #        (没有 state)     旧数据，按缺文件的情况推断
+    state = None
+    if isinstance(summary, dict):
+        state = summary.get("state")
+    rs = _read_json(d / "run-state.json")
+    if not state and isinstance(rs, dict):
+        state = rs.get("state")
+    item["run_state"] = state
+
+    # 有没有逐请求记录 —— 决定"能不能看请求列表"
+    # ⚠️ 用 exists() 判断，不要直接 stat()：文件不存在时 stat() 会抛异常
+    rq = d / "requests.jsonl"
+    has_requests = rq.is_file() and rq.stat().st_size > 0
+    item["has_requests"] = has_requests
+
+    # ⚠️ 这里要特别处理"summary.json 根本不存在"的情况：
+    #    中途被停止的运行【不会】有 summary.json（停止得太早），
+    #    而 run-state.json 里明确写着 state=aborted。
+    #    早先只看 summary，于是这种情况掉进"缺 summary.json"那支，
+    #    界面显示成"数据不完整"，跟"目录坏了"分不开。
+    if not isinstance(summary, dict) and not state:
+        state = "aborted" if isinstance(rs, dict) else None
+        item["run_state"] = state
+
+    if state == "aborted":
+        # 中途被停：已完成的部分是有效数据，要能看
+        item["status"] = "aborted"
+        item["n_records"] = (rs or {}).get("n_records_so_far")
+        n = item.get("n_requests_actual")
+        item["status_text"] = (
+            f"⚠️ 测试未完成（中途被停止）"
+            + (f"，已记录 {n} 条请求" if n else "")
+            + "；可查看已跑完的部分，但不要当作完整结果")
+        # ⚠️ usable 仍为 False：它不是一次可用的正式测量，
+        #    但【不影响查看】—— 前端据此决定"能不能对比/引用"，
+        #    而不是"能不能打开"。
+    elif state == "running":
+        item["status"] = "running"
+        item["status_text"] = "⏳ 正在运行（下面是已跑完的部分）"
+    elif missing and not has_requests:
         item["status"] = "incomplete"
-        item["status_text"] = ("数据不完整：缺 " + "、".join(missing)
-                               + "（可能运行被中断）")
+        item["status_text"] = ("没有逐请求记录：缺 " + "、".join(missing)
+                               + "（运行刚开始就被中断，或不是本程序产生的目录）")
+    elif missing:
+        # 有请求记录、只是缺汇总 —— 仍然可以看请求
+        item["status"] = "incomplete"
+        item["status_text"] = ("逐请求记录在，但缺 " + "、".join(missing)
+                               + "（运行未正常收尾）")
     elif not isinstance(summary, dict):
         item["status"] = "incomplete"
         item["status_text"] = "summary.json 无法解析"
@@ -286,17 +355,60 @@ def get_run(run_id):
     }
 
 
+def _partial_note(d):
+    """
+    判断这次运行是不是"中途停止/未完成"，返回给前端的提示文字（或 None）。
+
+    ⚠️ 为什么需要它：请求列表原来在缺 requests.jsonl 时直接抛错，
+       界面上只显示一句"加载失败"。而"中途被停的测试"其实
+       【有已跑完的请求】值得看 —— 应该显示出来并标明不完整，
+       而不是当成一个错误。
+    """
+    summary = _read_json(d / "summary.json")
+    rs = _read_json(d / "run-state.json")
+    state = None
+    if isinstance(summary, dict):
+        state = summary.get("state")
+    if not state and isinstance(rs, dict):
+        state = rs.get("state")
+    if state == "aborted":
+        return "⚠️ 这次测试被中途停止，下面只是停止前已完成的部分，不是完整结果。"
+    if state == "running":
+        return "⏳ 这次测试还在运行，下面是目前已跑完的部分。"
+    if state == "finished":
+        return None
+    # 没有状态文件（旧数据）：按缺不缺汇总文件推断
+    if isinstance(summary, dict):
+        return None
+    if isinstance(rs, dict):
+        # 有状态文件但状态不是上面那几种 —— 至少说明是"本程序产生的、
+        # 还没收尾的运行"，而不是目录坏了
+        return (f"⚠️ 这次运行没有正常收尾"
+                f"（状态 {rs.get('state') or '未知'}），"
+                f"下面是已记录的请求。")
+    return "⚠️ 这次运行没有正常收尾（缺 summary.json），下面是已记录的请求。"
+
+
 def get_requests(run_id, offset=0, limit=100, only=None, task_id=None):
     """
     分页读逐请求记录。
 
     only: "bad" 只返回非成功记录；None 返回全部
     task_id: 只看某个任务
+
+    ⚠️ 与早先的行为差异：requests.jsonl 不存在时【不再抛错】，
+       而是返回空列表 + 说明。这样界面能区分
+       "真的一条都没有" 和 "接口坏了"。
     """
     d = validate_run_id(run_id)
     rows = _read_jsonl(d / "requests.jsonl")
+    note = _partial_note(d)
     if rows is None:
-        raise BenchStoreError(f"该运行没有 requests.jsonl：{run_id}")
+        return {"run_id": run_id, "total": 0, "offset": 0, "limit": limit,
+                "rows": [],
+                "note": note or ("这次运行没有逐请求记录"
+                                 "（requests.jsonl）—— 可能在发第一个请求前"
+                                 "就被停止了。")}
 
     if only == "bad":
         rows = [r for r in rows if r.get("status") != "success"]
@@ -319,7 +431,7 @@ def get_requests(run_id, offset=0, limit=100, only=None, task_id=None):
         light.append(c)
 
     return {"run_id": run_id, "total": total, "offset": offset,
-            "limit": limit, "rows": light}
+            "limit": limit, "rows": light, "note": note}
 
 
 def get_request_detail(run_id, request_id):
@@ -327,7 +439,9 @@ def get_request_detail(run_id, request_id):
     d = validate_run_id(run_id)
     rows = _read_jsonl(d / "requests.jsonl")
     if rows is None:
-        raise BenchStoreError(f"该运行没有 requests.jsonl：{run_id}")
+        raise BenchStoreError(
+            f"这次运行没有逐请求记录（requests.jsonl）—— "
+            f"可能在发第一个请求前就被停止了：{run_id}")
     for r in rows:
         if r.get("request_id") == request_id:
             return r
@@ -335,8 +449,14 @@ def get_request_detail(run_id, request_id):
 
 
 def get_errors(run_id):
-    """错误记录（术语④）"""
+    """错误记录（术语④）
+
+    ⚠️ 中途被停止的运行也会走到这里。errors.json 可能不存在
+       （没跑完就没写），那就从 requests.jsonl 现场筛 ——
+       所以"被停的测试"现在也能看到它停止前产生的错误/截断记录。
+    """
     d = validate_run_id(run_id)
+    note = _partial_note(d)
     errs = _read_json(d / "errors.json", default=None)
     if errs is None:
         # errors.json 缺失时，从 requests.jsonl 现场筛一遍
@@ -347,7 +467,7 @@ def get_errors(run_id):
     for r in errs:
         c = {k: v for k, v in r.items() if k != "output_text"}
         light.append(c)
-    return {"run_id": run_id, "n": len(light), "errors": light}
+    return {"run_id": run_id, "n": len(light), "errors": light, "note": note}
 
 
 def get_gpu_samples(run_id):

@@ -45,6 +45,7 @@ import os
 import platform
 import queue
 import random
+import signal
 import statistics
 import subprocess
 import sys
@@ -477,8 +478,17 @@ def summarize(records, wall_time_s=None):
     # ⚠️ 只有 status == "success" 才算成功。
     #    "incomplete" 是被中途掐断的（没有 finish_reason），
     #    它既不是成功（没答完），也不能混进延迟统计（否则均值被拉低）。
+    #
+    #    ⭐ "truncated"（输出撞上 max_tokens 上限）同样不算成功。
+    #       它技术上跑完了，但输出是【残缺】的 —— 实测 P03 断在字符串
+    #       中间，生成的代码根本没法运行。
+    #       把它算成功的话成功率会是 100%，而"输出能不能用"是另一回事。
+    #       但它也不计入失败：服务没坏、请求没被拒，只是配置的上限到了。
     ok = [r for r in records if r["status"] == "success"]
     ok_with_ttft = [r for r in ok if r["ttft_ms"] is not None]
+    # 被截断的请求：参与"有没有产出 token"的统计，但不参与延迟统计
+    # （它的耗时是被人为截断的，不代表完整生成要多久）
+    trunc = [r for r in records if r["status"] == "truncated"]
 
     def col(rs, key):
         return [r[key] for r in rs if r.get(key) is not None]
@@ -489,6 +499,7 @@ def summarize(records, wall_time_s=None):
     s = {
         "n_requests": total,
         "n_success": len(ok),
+        "n_truncated": len(trunc),
         "n_failed": by_status.get("failed", 0),
         "n_timeout": by_status.get("timeout", 0),
         "n_cancelled": by_status.get("cancelled", 0),
@@ -496,9 +507,17 @@ def summarize(records, wall_time_s=None):
         "n_harness_error": by_status.get("harness_error", 0),
         "status_breakdown": by_status,
         "success_rate": (len(ok) / total) if total else None,
-        "success_rate_note": ("分母 = 本次运行的请求总数（含失败与中断）；"
-                              "只有拿到 finish_reason 的才算成功；"
-                              "harness_error 表示测试程序自身的 bug，不是模型问题"),
+        "success_rate_note": (
+            "分母 = 本次运行的请求总数（含失败、中断与被截断的）；"
+            "★ 只有自然跑完（finish_reason=stop / 收到 [DONE]）的才算成功；"
+            "★ truncated = 输出撞上 max_tokens 被硬截断，输出残缺，"
+            "不算成功也不算失败（是配置上限问题，不是服务问题）；"
+            "harness_error 表示测试程序自身的 bug，不是模型问题"),
+        "truncated_note": (
+            f"本次有 {len(trunc)} 条请求达到 max_tokens 上限被截断。"
+            f"这些输出不完整，代码类任务通常无法直接运行 —— "
+            f"如需完整输出，请调大配置里的 max_tokens 后重跑。"
+            if trunc else "本次没有请求达到 max_tokens 上限。"),
 
         "ttft_ms": {
             "n": len(ok_with_ttft),
@@ -540,8 +559,15 @@ def summarize(records, wall_time_s=None):
                     "分母用墙钟时间，不用逐请求相对时间推算",
         },
         "finish_reason": {},
+        "finish_reason_note": (
+            "统计【全部请求】的服务端结束原因，不只成功的 —— "
+            "这样 stop / length / 缺失 三类都能看到，"
+            "一眼能判断'输出有多少是被截断的'。"
+            "缺失（unknown）表示流在服务端给出结束标记前就断了。"),
     }
-    for r in ok:
+    # ⚠️ 早先这里只遍历 ok（成功的请求），于是被截断的 length 反而不进直方图 ——
+    #    而 length 恰恰是最需要被看到的那一类。改成统计全部请求。
+    for r in records:
         fr = r.get("finish_reason") or "unknown"
         s["finish_reason"][fr] = s["finish_reason"].get(fr, 0) + 1
 
@@ -926,6 +952,36 @@ def collect_interactive(cfg_base, log=None):
         print("  V 的精度（参与加权求和，相对不敏感）：")
         ctv = _ask_choice("V", KV_CHOICES, default_key="1")
 
+    # ── 输出上限 ─────────────────────────────────────────────────────
+    #
+    # ⚠️ 为什么这一问必须有：
+    #    max_tokens 决定"输出会不会被硬截断"。达到上限时服务端停止生成、
+    #    给 finish_reason=length，输出可能停在句子或代码中间 ——
+    #    实测 P03 就是断在字符串中间（引号没闭合），代码没法运行。
+    #    而这个值原来是【写死在配置文件里】的，两种启动方式都改不了，
+    #    于是"输出被截断"这件事既看不见也调不了。
+    print()
+    print("  输出上限（单个请求最多生成多少 token）")
+    print("        ⚠️ 达到上限会被硬截断：输出可能停在句子或代码中间。")
+    print("        ⚠️ 必须小于上下文，否则输入一进去就超，服务端直接拒绝。")
+
+    def _mt_ok(s):
+        if not s.isdigit():
+            return False, "要输入整数"
+        v = int(s)
+        if v < 64:
+            return False, "太小了（至少 64）"
+        if v >= ctx:
+            return False, (f"必须小于上下文 {ctx}"
+                           f"（上下文里还要放输入）")
+        if v > 8192:
+            return False, "超过 8192 了，检查一下是不是输错了"
+        return True, ""
+
+    max_tokens = int(_ask("输出上限为多少",
+                          default=cfg_base.get("max_tokens", 2048),
+                          validator=_mt_ok))
+
     # ── 编号 ─────────────────────────────────────────────────────────
     print()
     label = _ask("运行标签（决定结果目录名前缀）",
@@ -936,6 +992,7 @@ def collect_interactive(cfg_base, log=None):
         "ctx": ctx,
         "ctk": ctk,
         "ctv": ctv,
+        "max_tokens": max_tokens,
         "label": label,
     }
 
@@ -970,6 +1027,10 @@ def answers_to_config(answers, base):
     d["server_ctx"] = answers["ctx"]
     d["kv_type_k"] = answers["ctk"]
     d["kv_type_v"] = answers["ctv"]
+    # ⭐ 输出上限：交互模式下用户刚回答的值要写进配置。
+    #    早先这一项在交互模式里【根本没问】，所以永远是模板里的旧值。
+    if answers.get("max_tokens"):
+        d["max_tokens"] = int(answers["max_tokens"])
     # note 自动生成：只写本轮参数，天然满足规范
     d["note"] = (
         f"{Path(answers['model_file']).stem} · ctx {answers['ctx']} · "
@@ -1027,14 +1088,28 @@ def answers_to_config(answers, base):
     return res, index
 
 
-def run_one_wave(wave_tasks, cache, cfg, client_id, results):
+def run_one_wave(wave_tasks, cache, cfg, client_id, results, on_flush=None,
+                 sink=None):
     """
     并发发出一个 wave 的所有请求，等全部完成。
 
-    ⚠️ 这里原来有两个"测试钩子"（cancel_after_chunks / timeout_override），
-       用来给 tests/test_05_errors.py 注入取消与超时。随异常制造功能
-       一起移除了 —— 正式测量不需要它们，而它们的存在会让
-       "这次运行是注入过的"成为一个需要额外的字段去标注的状态。
+    ── sink：全局累积列表 ──────────────────────────────────────────────
+    ⚠️ 为什么需要它（我在这里踩过一次，记下来）：
+       原来只有 results（【本次 wave】的列表），全局的 all_records
+       是在【整个并发档跑完】之后才 extend 的。
+       我最初把增量落盘的回调接到 all_records 上，结果：
+         · wave 逐个完成，日志一直在打"累计 N"
+         · 而 all_records 始终是空的 → requests.jsonl 一直是 0 行
+         · 中途停止时【依然什么都存不下来】
+       所以请求记录必须【随完成随进全局列表】，不能等档位结束。
+
+    ── on_flush：每完成一条就回调一次 ──────────────────────────────────
+    ⚠️ 为什么需要它：requests.jsonl 原来只在测试正常跑完时写一次，
+       而网页上的"停止测试"发的是 SIGTERM —— 进程直接没了，
+       那一行永远写不到，整个运行目录里一条请求记录都没有。
+       现在边跑边写，随时停数据都在。
+
+    ⚠️ 回调里不能抛异常 —— 落盘失败不该让测试崩掉。
     """
     q = queue.Queue()
     for tid in wave_tasks:
@@ -1083,6 +1158,19 @@ def run_one_wave(wave_tasks, cache, cfg, client_id, results):
             r["task_id"] = tid
             tag_run_instance(r)           # ⭐ 标明这条请求是哪个服务实例处理的
             results.append(r)
+            # ⭐ 同时进全局列表 —— 落盘与"已记 N 条"都靠它。
+            #    不能只在档位结束时才 extend（那样中途停止仍然什么都存不到）。
+            if sink is not None:
+                sink.append(r)
+
+            # ⭐ 每完成一条就落盘一次 —— 这样测试被中途停掉时，
+            #    已经跑完的请求仍然留在 requests.jsonl 里。
+            #    回调里自己吞异常，绝不让落盘问题影响测试。
+            if on_flush is not None:
+                try:
+                    on_flush()
+                except Exception:                             # noqa: BLE001
+                    pass
 
     threads = [threading.Thread(target=worker, args=(i,))
                for i in range(len(wave_tasks))]
@@ -1836,6 +1924,128 @@ def main():
     # ── 正式测试 ─────────────────────────────────────────────────────
     all_records = []
     summaries = {}
+
+    # ⭐ 增量落盘：每完成一个请求就重写 requests.jsonl。
+    #
+    #  为什么（这是"中途被停的测试什么都没有"的根因）：
+    #    原来 requests.jsonl 只在最后写一次；而网页上的"停止测试"
+    #    发的是 SIGTERM，进程直接没了 —— 那一行永远写不到，
+    #    整个运行目录里一条请求记录都没有，界面只能显示"加载失败"。
+    #    实测被停掉的 web-1016-20261016-165215 正是如此。
+    #
+    #  ⚠️ 用覆盖写（"w"）而不是追加（"a"）：
+    #     记录会被回填 concurrency / phase 等字段，追加会写出重复条目。
+    #     一份几十 KB 的小文件重写，代价可以接受。
+    _flush_lock = threading.Lock()
+
+    def _write_status(state, extra=None):
+        """把"这次运行跑到哪了"写成一个小文件，供界面读取"""
+        try:
+            d = {
+                "run_id": run_id,
+                "label": label,
+                "state": state,          # running / finished / aborted
+                "started_at": meta.get("started_at"),
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "n_tasks": len(cfg["task_ids"]),
+                "rounds": cfg["rounds"],
+                "concurrency": cfg["concurrency"],
+                "n_requests_planned": (len(cfg["task_ids"]) * cfg["rounds"]
+                                       * len(cfg["concurrency"])),
+                "n_records_so_far": len(all_records),
+            }
+            if extra:
+                d.update(extra)
+            (out / "run-state.json").write_text(
+                json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _flush_records(current_conc=None):
+        """把已完成的请求写进 requests.jsonl（覆盖写，带锁防并发交错）
+
+        ⚠️ 数据源是 all_records —— 而它现在在 run_one_wave 里【随完成随追加】
+           （见 sink 参数）。早先它要到档位结束才填，于是这里永远是空的。
+        """
+        with _flush_lock:
+            try:
+                rows = []
+                for r in all_records:
+                    d = r.to_dict() if hasattr(r, "to_dict") else dict(r)
+                    if current_conc is not None:
+                        d.setdefault("concurrency", current_conc)
+                    d.setdefault("phase", "formal")
+                    rows.append(d)
+                tmp = out / "requests.jsonl.tmp"
+                with tmp.open("w", encoding="utf-8") as f:
+                    for d in rows:
+                        f.write(json.dumps(d, ensure_ascii=False) + "\n")
+                tmp.replace(out / "requests.jsonl")   # 原子替换，避免读到半截
+                _write_status("running")
+            except OSError:
+                pass
+
+    _write_status("running")
+    log("已启用增量落盘：每完成一个请求就写一次 requests.jsonl"
+        "（这样中途停止也能看到已跑完的部分）")
+
+    # ⭐ 被"停止测试"（SIGTERM）时，不要什么都不留。
+    #
+    #  网页上的停止走 bench_runner.stop() → killpg(SIGTERM)。
+    #  默认行为是进程立刻消失，于是：
+    #    · summary.json 没有
+    #    · 界面只能显示"该运行没有 summary.json"
+    #    · 人不知道"跑了多少、停在哪"
+    #  装个 handler 之后，能落一份【未完成】的汇总：
+    #  已跑完的请求照常统计，并明确标注 state=aborted。
+    #
+    #  ⚠️ handler 里只做落盘，不做统计的复杂计算 ——
+    #     统计放在 _finalize_aborted 里，用已有的 summarize()。
+    def _on_signal(signum, _frame):
+        try:
+            _write_status("aborted", {
+                "aborted_by": (f"信号 {signum}"
+                               f"（{'SIGTERM' if signum == 15 else signum}）"),
+                "aborted_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            })
+            if all_records:
+                # 已完成的请求照常汇总 —— 有数据就比没有强
+                recs = [r.to_dict() if hasattr(r, "to_dict") else dict(r)
+                        for r in all_records]
+                wall = sum(s.get("wall_time_s") or 0
+                           for s in summaries.values()) or None
+                final = {
+                    "run_id": run_id,
+                    "label": label,
+                    "state": "aborted",
+                    "aborted_note": (
+                        f"⚠️ 这次运行被中途停止（信号 {signum}）。"
+                        f"下面只统计【停止前已完成】的 "
+                        f"{len(recs)} 条请求，不是完整结果，"
+                        f"不要当作正式测量数据使用。"),
+                    "n_requests_planned": (len(cfg["task_ids"]) * cfg["rounds"]
+                                           * len(cfg["concurrency"])),
+                    "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                    "formal": summaries,
+                    "overall": summarize(recs, wall_time_s=wall),
+                    "cold_start": cold_start,
+                    "warmup": warmup_records,
+                }
+                (out / "summary.json").write_text(
+                    json.dumps(final, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+        except Exception:                                     # noqa: BLE001
+            pass
+        # 恢复默认行为并重新发一次信号，让退出码如实反映"被信号终止"
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    for _sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(_sig, _on_signal)
+        except (ValueError, OSError):
+            pass
+
     for conc in cfg["concurrency"]:
         waves = build_plan(cfg["task_ids"], cfg["rounds"], conc,
                            cfg["seed"], cfg["order"])
@@ -1848,7 +2058,10 @@ def main():
         results = []
         t_start = time.perf_counter()
         for wi, wave in enumerate(waves):
-            run_one_wave(wave, cache, cfg, f"c{conc}-w{wi}", results)
+            # 把当前档位传进去，这样中途停止时记录上也有 concurrency
+            run_one_wave(wave, cache, cfg, f"c{conc}-w{wi}", results,
+                         on_flush=lambda c=conc: _flush_records(c),
+                         sink=all_records)
             log(f"  wave {wi + 1}/{len(waves)} 完成（累计 {len(results)}）")
         wall = time.perf_counter() - t_start
 
@@ -1859,7 +2072,14 @@ def main():
         for r in recs:
             r["concurrency"] = conc
             r["phase"] = "formal"
-        all_records.extend(recs)
+        # ⚠️ all_records 里已经有这批了（run_one_wave 的 sink 随完成随追加），
+        #    所以这里【不能】再 extend 一次，否则记录会翻倍。
+        #    这里只把 concurrency / phase 回填到 all_records 的对象上。
+        #    （all_records 里存的是 RequestResult，回填走 __setitem__）
+        for r in results:
+            r["concurrency"] = conc
+            r["phase"] = "formal"
+        _flush_records(conc)          # 每档结束再补写一次（含回填的字段）
 
         # ⭐ 把墙钟时间传给 summarize —— 吞吐窗口必须用它，不能用逐请求相对时间推
         s = summarize(recs, wall_time_s=wall)
@@ -1870,7 +2090,12 @@ def main():
 
         log(f"  完成：成功 {s['n_success']}/{s['n_requests']}"
             f"（{_pct(s['success_rate'])}）"
-            f"  TTFT 中位 {_ms(s['ttft_ms'].get('median'))}"
+            # ⭐ 截断数必须单独报出来 —— 它是"看着像成功"的那一类，
+            #    只写"成功 x/y"会让人以为剩下的都是失败。
+            + (f"  ✂️ 截断 {s['n_truncated']}" if s.get("n_truncated") else "")
+            + (f"  失败 {s['n_failed']}" if s.get("n_failed") else "")
+            + (f"  中断 {s['n_incomplete']}" if s.get("n_incomplete") else "")
+            + f"  TTFT 中位 {_ms(s['ttft_ms'].get('median'))}"
             f"  P95 {_ms(s['ttft_ms'].get('p95'))}"
             f"  吞吐 {_tok(s['throughput'].get('output_tokens_per_s'))} tok/s"
             f"  峰值显存 {sampler.peak_mib()} MiB")
@@ -1889,7 +2114,16 @@ def main():
 
     # 非成功请求单独一份，便于排查（题意④）
     # ⚠️ 包括 incomplete（流被中断）—— 它也是"没答完"，必须能查到
-    bad = [r for r in all_records if r["status"] != "success"]
+    #
+    # ⭐ 也包括 truncated（输出撞上 max_tokens 被截断）。
+    #    这正是"把 length 放进错误记录"的落点：截断不是成功，
+    #    而且它是最容易被忽略的一类 —— 状态看着像正常结束，
+    #    实际输出是残缺的。放在这里，跑完一轮就能一眼看到有几条。
+    #    排序：截断排最前（它最容易被误认为成功）。
+    _order = {"truncated": 0, "incomplete": 1, "failed": 2,
+              "timeout": 3, "cancelled": 4, "harness_error": 5}
+    bad = sorted((r for r in all_records if r["status"] != "success"),
+                 key=lambda r: _order.get(r["status"], 9))
     (out / "errors.json").write_text(
         json.dumps(bad, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -1958,6 +2192,10 @@ def main():
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # ── 更新登记表（方便前端列出与自动配对对比）────────────────────────
+    # ⭐ 先标成"正常跑完" —— 界面靠这个区分"完整"与"中途被停"
+    _write_status("finished", {
+        "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    })
     rec = make_registry_record(run_id, label, cfg, meta, summaries,
                                final["overall"], out, duration_s)
     if update_runs_registry(out_root, rec):

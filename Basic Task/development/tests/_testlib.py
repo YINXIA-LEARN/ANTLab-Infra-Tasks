@@ -151,20 +151,53 @@ def run(main_fn):
 #  读结果数据
 # ══════════════════════════════════════════════════════════════════════════
 
-def list_runs():
+def list_runs(include_incomplete=False):
     """
     列出 results/ 下【可用】的运行目录名（有 requests.jsonl 的）。
 
     ⚠️ 判据用 requests.jsonl 而不是"目录存在"：
        中断的运行也会留下目录，但它没有逐请求记录，测不了。
+
+    ── include_incomplete ──────────────────────────────────────────────
+    ⚠️ 默认【排除】"中途被停止"的运行。
+       为什么：这些运行的请求数天然少于计划数（跑一半就被停了），
+       如果把它们当正式运行来查"每档请求数 = 任务数 × 轮次"，
+       会报一堆假失败 —— 而那不是缺陷，是预期行为。
+
+       它们的价值在别处：验证"停止后数据还在"。那由
+       test_10_midstop.py 单独检查（它明确要求有被停的运行）。
     """
     if not RESULTS_DIR.is_dir():
         return []
     out = []
     for d in sorted(RESULTS_DIR.iterdir()):
-        if d.is_dir() and (d / "requests.jsonl").is_file():
-            out.append(d.name)
+        if not (d.is_dir() and (d / "requests.jsonl").is_file()):
+            continue
+        if not include_incomplete and run_is_incomplete(d):
+            continue
+        out.append(d.name)
     return out
+
+
+def run_is_incomplete(d):
+    """这次运行是不是"没正常收尾"（中途被停 / 还在跑 / 缺汇总）"""
+    def _j(name):
+        f = d / name
+        if not f.is_file():
+            return None
+        try:
+            return json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    st = _j("run-state.json")
+    if isinstance(st, dict) and st.get("state") in ("aborted", "running"):
+        return True
+    sm = _j("summary.json")
+    if isinstance(sm, dict) and sm.get("state") in ("aborted", "running"):
+        return True
+    # 没有 summary.json 说明没跑完（正常跑完一定会写）
+    return sm is None
 
 
 def load_run(run_id):

@@ -547,12 +547,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "bad_json",
                                       "message": f"请求体不是合法 JSON：{e}"})
                 return
+            # ⚠️ 这是一个【白名单】：不在这个字典里的字段会被静默丢掉。
+            #    早先这里没有 max_tokens，于是前端填的输出上限根本传不到
+            #    bench_runner.start() —— 表现为"改了没反应"，
+            #    而且因为没报错，很难发现是这一层丢的。
+            #    加字段时务必同时改这里。
             params = {
                 "model_file": payload.get("model_file"),
                 "label": payload.get("label"),
                 "ctx": payload.get("ctx"),
                 "ctk": payload.get("ctk"),
                 "ctv": payload.get("ctv"),
+                "max_tokens": payload.get("max_tokens"),
             }
             try:
                 ok, res = bench_runner.start(
