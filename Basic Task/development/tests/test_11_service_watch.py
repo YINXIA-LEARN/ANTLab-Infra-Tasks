@@ -48,10 +48,21 @@ def api(path, method="GET", body=None, timeout=150):
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read().decode("utf-8")), r.status
     except urllib.error.HTTPError as e:
+        # 服务在，但返回了错误码（4xx/5xx）
         try:
             return json.loads(e.read().decode("utf-8")), e.code
         except Exception:                                     # noqa: BLE001
             return {"error": "http", "message": str(e)}, e.code
+    except urllib.error.URLError as e:
+        # ⚠️ 这条分支是后补的，踩过一次坑：
+        #    原来只捕 HTTPError，而"控制层根本没在跑"抛的是 URLError
+        #    （Connection refused），于是异常直接飞出 api()，
+        #    main() 里那句"控制层没在跑，跳过"**永远不会执行** ——
+        #    实际表现是甩出 40 行 traceback、退出码 2，
+        #    看起来像测试自己坏了，其实是环境没起。
+        #    （触发场景：跑过 `wsl --terminate` 之后控制层被杀了。）
+        #    现在统一收成 (err_dict, 0)，让调用方能判 code != 200 并体面跳过。
+        return {"error": "unreachable", "message": str(e)}, 0
 
 
 def main():

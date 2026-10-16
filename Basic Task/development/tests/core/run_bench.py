@@ -2079,12 +2079,25 @@ def main():
     log(f"服务实例：PID {current_server_pid()}")
 
     # ── 冷启动 / 预热 / 正式（题目要求区分记录）──────────────────────
+    #
+    # ⚠️ warmup.n 的语义（容易被误读，写清楚）：
+    #      n 是【冷启动 + 预热的总请求数】，不是"预热几条"。
+    #      第 1 条（i=0）记成 cold_start，其余 n-1 条记成 warmup。
+    #
+    #      实测踩过的困惑：配置写 n=2，summary.json 的 warmup 数组却只有
+    #      1 条 —— 一度以为是预热漏跑了一次。查日志才确认是对的：
+    #          [22:25:27] 冷启动 + 预热（任务 P01 × 2）…
+    #          [22:25:28]   冷启动 TTFT 23 ms，总耗时 720 ms
+    #          [22:25:29]   预热1 TTFT 11 ms          ← 仅此一条，符合 n=2
+    #      隔离性没问题（每轮都有冷启动+预热），但这个字段名有歧义：
+    #      字面读像"预热 2 次"。若将来要改，建议拆成两个字段
+    #      cold_start_n / warmup_n。
     cold_start = None
     warmup_records = []
     if cfg["warmup"].get("enabled"):
         wid = cfg["warmup"].get("task_id", "P01")
         n = cfg["warmup"].get("n", 2)
-        log(f"冷启动 + 预热（任务 {wid} × {n}）…")
+        log(f"冷启动 + 预热（任务 {wid} × {n}，含冷启动那一条）…")
         for i in range(n):
             r = client.run_one(cfg["base_url"], cache[wid]["messages"],
                                max_tokens=cfg["max_tokens"],

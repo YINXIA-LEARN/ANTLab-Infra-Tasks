@@ -4,18 +4,29 @@
 
 ```text
 results/
-├─ runs.json                                 运行登记表（索引，见下）
-├─ baseline-full-r1-20261010-215643/         一次运行
+├─ runs.json                                 运行登记表（★ 派生索引，见下）
+├─ report-data.txt                           汇总与单变量对比（分析脚本产出）
+├─ code-eval.json                            编程任务逐运行判定
+├─ office-eval.json                          办公任务逐运行命中情况
+├─ kv-capacity-probe.txt                     KV 容量实测（单请求二分探测）
+├─ ctx16k-f16-06b-r1-20261016-222516/        一次运行
 │  ├─ run-config.json     配置快照（复现的关键）
 │  ├─ meta.json           硬件、模型、服务端实际参数、控制变量
 │  ├─ prompt-index.json   任务编号 ↔ 文件 ↔ sha256 ↔ token 数
 │  ├─ requests.jsonl      逐请求原始记录（含模型输出原文）
-│  ├─ summary.json        汇总统计（中位数 / P95 / 吞吐 / 显存峰值）
-│  ├─ errors.json         非成功请求
+│  ├─ summary.json        汇总统计（冷启动/预热/正式三段）
+│  ├─ errors.json         非成功请求（按排查优先级排序）
 │  ├─ gpu-samples-c*.csv  各并发档的显存与利用率采样
+│  ├─ service-starts.jsonl  本运行期间服务被拉起的记录（有它 = 跨了实例）
+│  ├─ run-state.json      运行状态
 │  └─ run.log             该次运行的日志
-└─ opt-ctx32k-full-r1-20261011-101250/
+└─ ctx32k-f16-06b-r1-20261016-223012/
 ```
+
+> **⚠️ 目录名是【按真实配置】命名的**（`<上下文>-<KV精度>-<模型>-r<轮次>-<时间戳>`）。
+> 早先的 label 曾与真实配置大面积错配（例如名为 `kv_baseline` 的那轮实际用的是
+> q8_0、名为 `kv_opt` 的那轮实际用的是 f16），按 label 配对会把结论搞反。
+> 命名规则与重命名脚本见 `../tools/analysis/fix_run_labels.py`。
 
 ---
 
@@ -100,6 +111,25 @@ load_model: prompt cache is disabled - use `--cache-ram N` to enable it   ← �
   都会把它显示成「目录已丢失」而不是静默忽略。
 - 反过来，目录在而登记表里没有（比如从别的机器拷来的结果），也照常能读。
 - 因此**不要手工编辑 runs.json**；要改备注用 `src/tools/fix_run_note.py`。
+
+### ⚠️ 三个字段曾经留过旧值（已修正，留档）
+
+按真实配置重命名运行目录时，只同步了 `run_id`，另外三个字段留着旧值：
+
+| 字段 | 曾经的值 | 问题 |
+| --- | --- | --- |
+| `dir` | 旧目录名 | **指向已不存在的目录** |
+| `label` | 旧标签 | 与目录名不符 |
+| `server_args.ctx` | 恒为注册表默认值 32768 | ★ 9 轮里有 8 轮实际跑的是 16384，**这个字段是错的** |
+
+其中 `server_args.ctx` 最危险 —— 按它配对，上下文实验的结论会完全反过来。
+现已改为从各运行目录的 `run-config.json` / `meta.json` 重算，
+9 条与目录一一对应。修正脚本：`../tools/analysis/fix_runs_registry.py`
+（该脚本写回前会自检条数、写回后会读回校验，防止把登记表写坏）。
+
+**再次强调：`runs.json` 只是索引。判断某轮的真实配置，
+一律看该轮目录里的 `meta.json → server_config.server_flags`
+（那是从进程命令行读的，最权威）。**
 
 ---
 
