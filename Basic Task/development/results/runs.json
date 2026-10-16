@@ -1,69 +1,20 @@
 [
   {
-    "run_id": "web-1016-20261016-135547",
-    "label": "web-1016",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 5 任务 x 1 轮 x 并发[1] · seed 20261009 · max_tokens 1024 · temp 0.0",
-    "dir": "web-1016-20261016-135547",
-    "started_at": "2026-10-16T13:55:47+0800",
-    "duration_s": 24.2,
+    "run_id": "ctx16k-f16-06b-r1-20261016-222516",
+    "label": "ctx_baseline_0.6",
+    "note": "Qwen3-0.6B-Q8_0 · ctx 16384 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "ctx_baseline_0.6-20261016-222516",
+    "started_at": "2026-10-16T22:25:16+0800",
+    "duration_s": 258.1,
     "model": "Qwen3-0.6B-Q8_0.gguf",
     "quant": "Q8_0",
-    "n_ctx": 32768,
+    "n_ctx": 16384,
     "total_slots": 4,
     "server_args": {
       "ngl": 99,
       "ctx": 32768
     },
-    "vram_after_load_mib": 5522,
-    "task_ids": [
-      "P01",
-      "P03",
-      "D01",
-      "D03",
-      "C01"
-    ],
-    "rounds": 1,
-    "concurrency": [
-      1
-    ],
-    "seed": 20261009,
-    "max_tokens": 1024,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "1": {
-        "n_requests": 5,
-        "n_success": 5,
-        "success_rate": 1.0,
-        "ttft_median_ms": 14.528942000026746,
-        "ttft_p95_ms": 21.481946599988078,
-        "tpot_median_ms": 6.03899319323696,
-        "total_median_ms": 2798.726604999956,
-        "throughput_tps": 168.74379374607673,
-        "vram_peak_mib": 5551
-      }
-    },
-    "overall": {
-      "n_requests": 5,
-      "n_success": 5,
-      "success_rate": 1.0
-    }
-  },
-  {
-    "run_id": "web-1016-20261016-135642",
-    "label": "web-1016",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
-    "dir": "web-1016-20261016-135642",
-    "started_at": "2026-10-16T13:56:42+0800",
-    "duration_s": 226.6,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 5555,
+    "vram_after_load_mib": 3648,
     "task_ids": [
       "P01",
       "P02",
@@ -88,355 +39,51 @@
     "by_concurrency": {
       "1": {
         "n_requests": 30,
-        "n_success": 30,
-        "success_rate": 1.0,
-        "ttft_median_ms": 21.36541550001425,
-        "ttft_p95_ms": 25.40649540000288,
-        "tpot_median_ms": 6.213248874245744,
-        "total_median_ms": 3477.613486000024,
-        "throughput_tps": 162.55273240785377,
-        "vram_peak_mib": 5553
+        "n_success": 28,
+        "success_rate": 0.9333333333333333,
+        "ttft_median_ms": 24.18618299998343,
+        "ttft_p95_ms": 27.462144100354635,
+        "tpot_median_ms": 6.610884406229133,
+        "total_median_ms": 2827.069576500435,
+        "throughput_tps": 122.5658876229213,
+        "vram_peak_mib": 3691
       },
       "4": {
         "n_requests": 30,
         "n_success": 30,
         "success_rate": 1.0,
-        "ttft_median_ms": 151.87943200004383,
-        "ttft_p95_ms": 509.196543099972,
-        "tpot_median_ms": 6.517112617809632,
-        "total_median_ms": 3956.0975464999615,
-        "throughput_tps": 350.62487284040157,
-        "vram_peak_mib": 5545
-      },
-      "10": {
-        "n_requests": 30,
-        "n_success": 30,
-        "success_rate": 1.0,
-        "ttft_median_ms": 1996.9226514999718,
-        "ttft_p95_ms": 7696.416783300037,
-        "tpot_median_ms": 7.568498616539099,
-        "total_median_ms": 7411.215951000087,
-        "throughput_tps": 465.90399809941215,
-        "vram_peak_mib": 5563
-      }
-    },
-    "overall": {
-      "n_requests": 90,
-      "n_success": 90,
-      "success_rate": 1.0
-    }
-  },
-  {
-    "run_id": "canceltest-20261016-175725",
-    "label": "canceltest",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 6 任务 x 4 轮 x 并发[4] · seed 20261009 · max_tokens 600 · temp 0.0",
-    "dir": "canceltest-20261016-175725",
-    "started_at": "2026-10-16T17:57:26+0800",
-    "duration_s": 35.0,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 6137,
-    "task_ids": [
-      "P02",
-      "P03",
-      "P04",
-      "D01",
-      "D03",
-      "C01"
-    ],
-    "rounds": 4,
-    "concurrency": [
-      4
-    ],
-    "seed": 20261009,
-    "max_tokens": 600,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "4": {
-        "n_requests": 20,
-        "n_success": 6,
-        "success_rate": 0.3,
-        "ttft_median_ms": 29.134859500118182,
-        "ttft_p95_ms": 132.64704124912896,
-        "tpot_median_ms": 7.244693506837655,
-        "total_median_ms": 2649.7050025000135,
-        "throughput_tps": 88.24316975074228,
-        "vram_peak_mib": 6145
-      }
-    },
-    "overall": {
-      "n_requests": 20,
-      "n_success": 6,
-      "success_rate": 0.3
-    }
-  },
-  {
-    "run_id": "svclost-20261016-180452",
-    "label": "svclost",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 6 任务 x 6 轮 x 并发[2] · seed 20261009 · max_tokens 900 · temp 0.0",
-    "dir": "svclost-20261016-180452",
-    "started_at": "2026-10-16T18:04:52+0800",
-    "duration_s": 25.1,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 6147,
-    "task_ids": [
-      "P02",
-      "P03",
-      "P04",
-      "D01",
-      "D03",
-      "C01"
-    ],
-    "rounds": 6,
-    "concurrency": [
-      2
-    ],
-    "seed": 20261009,
-    "max_tokens": 900,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "2": {
-        "n_requests": 36,
-        "n_success": 3,
-        "success_rate": 0.08333333333333333,
-        "ttft_median_ms": 28.80639999966661,
-        "ttft_p95_ms": 29.602743400027975,
-        "tpot_median_ms": 6.1180462030269345,
-        "total_median_ms": 2862.3466180015384,
-        "throughput_tps": 66.85527496637508,
-        "vram_peak_mib": 6152
-      }
-    },
-    "overall": {
-      "n_requests": 36,
-      "n_success": 3,
-      "success_rate": 0.08333333333333333
-    }
-  },
-  {
-    "run_id": "autorecover-20261016-182754",
-    "label": "autorecover",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 4 任务 x 10 轮 x 并发[1] · seed 20261009 · max_tokens 1200 · temp 0.0",
-    "dir": "autorecover-20261016-182754",
-    "started_at": "2026-10-16T18:27:54+0800",
-    "duration_s": 25.1,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 6164,
-    "task_ids": [
-      "D01",
-      "D03",
-      "C01",
-      "C02"
-    ],
-    "rounds": 10,
-    "concurrency": [
-      1
-    ],
-    "seed": 20261009,
-    "max_tokens": 1200,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "1": {
-        "n_requests": 40,
-        "n_success": 2,
-        "success_rate": 0.05,
-        "ttft_median_ms": 20.117104500059213,
-        "ttft_p95_ms": 24.372515549566742,
-        "tpot_median_ms": 6.042334565963332,
-        "total_median_ms": 6214.4755029994485,
-        "throughput_tps": 118.64671156180776,
-        "vram_peak_mib": 6175
-      }
-    },
-    "overall": {
-      "n_requests": 40,
-      "n_success": 2,
-      "success_rate": 0.05
-    }
-  },
-  {
-    "run_id": "web-1016-20261016-183636",
-    "label": "web-1016",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
-    "dir": "web-1016-20261016-183636",
-    "started_at": "2026-10-16T18:36:36+0800",
-    "duration_s": 78.3,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 6178,
-    "task_ids": [
-      "P01",
-      "P02",
-      "P03",
-      "P04",
-      "D01",
-      "D02",
-      "D03",
-      "D04",
-      "C01",
-      "C02"
-    ],
-    "rounds": 3,
-    "concurrency": [
-      1,
-      4,
-      10
-    ],
-    "seed": 20261009,
-    "max_tokens": 2048,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "1": {
-        "n_requests": 30,
-        "n_success": 9,
-        "success_rate": 0.3,
-        "ttft_median_ms": 20.29240100091556,
-        "ttft_p95_ms": 25.67786019972118,
-        "tpot_median_ms": 5.508879294013435,
-        "total_median_ms": 3049.856659001307,
-        "throughput_tps": 96.85872527143064,
-        "vram_peak_mib": 6226
-      },
-      "4": {
-        "n_requests": 30,
-        "n_success": 0,
-        "success_rate": 0.0,
-        "ttft_median_ms": null,
-        "ttft_p95_ms": null,
-        "tpot_median_ms": null,
-        "total_median_ms": null,
-        "throughput_tps": null,
-        "vram_peak_mib": 1939
-      },
-      "10": {
-        "n_requests": 30,
-        "n_success": 0,
-        "success_rate": 0.0,
-        "ttft_median_ms": null,
-        "ttft_p95_ms": null,
-        "tpot_median_ms": null,
-        "total_median_ms": null,
-        "throughput_tps": null,
-        "vram_peak_mib": 1822
-      }
-    },
-    "overall": {
-      "n_requests": 90,
-      "n_success": 9,
-      "success_rate": 0.1
-    }
-  },
-  {
-    "run_id": "web-1016-20261016-183904",
-    "label": "web-1016",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
-    "dir": "web-1016-20261016-183904",
-    "started_at": "2026-10-16T18:39:04+0800",
-    "duration_s": 267.2,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 6176,
-    "task_ids": [
-      "P01",
-      "P02",
-      "P03",
-      "P04",
-      "D01",
-      "D02",
-      "D03",
-      "D04",
-      "C01",
-      "C02"
-    ],
-    "rounds": 3,
-    "concurrency": [
-      1,
-      4,
-      10
-    ],
-    "seed": 20261009,
-    "max_tokens": 2048,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "1": {
-        "n_requests": 30,
-        "n_success": 27,
-        "success_rate": 0.9,
-        "ttft_median_ms": 23.53702500113286,
-        "ttft_p95_ms": 203.46873339949525,
-        "tpot_median_ms": 5.9468313641579655,
-        "total_median_ms": 3620.393512999726,
-        "throughput_tps": 107.08245433418016,
-        "vram_peak_mib": 7478
-      },
-      "4": {
-        "n_requests": 30,
-        "n_success": 30,
-        "success_rate": 1.0,
-        "ttft_median_ms": 163.04154300087248,
-        "ttft_p95_ms": 482.3372847491554,
-        "tpot_median_ms": 6.782495520293443,
-        "total_median_ms": 3783.7559305007744,
-        "throughput_tps": 376.23922568655047,
-        "vram_peak_mib": 5281
+        "ttft_median_ms": 150.49220800028706,
+        "ttft_p95_ms": 494.9826195486819,
+        "tpot_median_ms": 6.95001626001067,
+        "total_median_ms": 3764.203754499249,
+        "throughput_tps": 348.53978444905704,
+        "vram_peak_mib": 3717
       },
       "10": {
         "n_requests": 30,
         "n_success": 29,
         "success_rate": 0.9666666666666667,
-        "ttft_median_ms": 2593.1606510021084,
-        "ttft_p95_ms": 13366.534952400974,
-        "tpot_median_ms": 7.529146229128631,
-        "total_median_ms": 7236.831238999002,
-        "throughput_tps": 393.4188976637624,
-        "vram_peak_mib": 5256
+        "ttft_median_ms": 2452.4479909996444,
+        "ttft_p95_ms": 13842.206836400865,
+        "tpot_median_ms": 7.88222619104538,
+        "total_median_ms": 8306.30070999905,
+        "throughput_tps": 419.1297775577749,
+        "vram_peak_mib": 3664
       }
     },
     "overall": {
       "n_requests": 90,
-      "n_success": 86,
-      "success_rate": 0.9555555555555556
+      "n_success": 87,
+      "success_rate": 0.9666666666666667
     }
   },
   {
-    "run_id": "web-1016-20261016-205634",
-    "label": "web-1016",
+    "run_id": "ctx32k-f16-06b-r1-20261016-223012",
+    "label": "ctx_oopt_0.6",
     "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
-    "dir": "web-1016-20261016-205634",
-    "started_at": "2026-10-16T20:56:35+0800",
-    "duration_s": 284.2,
+    "dir": "ctx_oopt_0.6-20261016-223012",
+    "started_at": "2026-10-16T22:30:12+0800",
+    "duration_s": 251.6,
     "model": "Qwen3-0.6B-Q8_0.gguf",
     "quant": "Q8_0",
     "n_ctx": 32768,
@@ -445,7 +92,241 @@
       "ngl": 99,
       "ctx": 32768
     },
-    "vram_after_load_mib": 5376,
+    "vram_after_load_mib": 5490,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 28,
+        "success_rate": 0.9333333333333333,
+        "ttft_median_ms": 24.11859699896013,
+        "ttft_p95_ms": 29.205892450772808,
+        "tpot_median_ms": 6.711433144792211,
+        "total_median_ms": 2823.111104000418,
+        "throughput_tps": 125.21922200272171,
+        "vram_peak_mib": 5480
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 152.55772800082923,
+        "ttft_p95_ms": 493.1397538992311,
+        "tpot_median_ms": 6.843564565445202,
+        "total_median_ms": 4292.77475500021,
+        "throughput_tps": 349.48242821131834,
+        "vram_peak_mib": 5526
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 1874.143870001717,
+        "ttft_p95_ms": 9901.837685749522,
+        "tpot_median_ms": 7.619526054495065,
+        "total_median_ms": 7746.239220499774,
+        "throughput_tps": 415.2725893253593,
+        "vram_peak_mib": 5525
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 88,
+      "success_rate": 0.9777777777777777
+    }
+  },
+  {
+    "run_id": "ctx16k-q80-06b-r1-20261016-223609",
+    "label": "kv_baseline_0.6",
+    "note": "Qwen3-0.6B-Q8_0 · ctx 16384 · KV q8_0/q8_0 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "kv_baseline_0.6-20261016-223609",
+    "started_at": "2026-10-16T22:36:09+0800",
+    "duration_s": 241.3,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 2882,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 27.704417499990086,
+        "ttft_p95_ms": 32.68957045220304,
+        "tpot_median_ms": 5.80557213409741,
+        "total_median_ms": 2952.82919049896,
+        "throughput_tps": 173.06318723531524,
+        "vram_peak_mib": 2917
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 194.76492700050585,
+        "ttft_p95_ms": 541.3496941999252,
+        "tpot_median_ms": 8.209041326835901,
+        "total_median_ms": 4659.2869110008905,
+        "throughput_tps": 298.43279400270984,
+        "vram_peak_mib": 2875
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 29,
+        "success_rate": 0.9666666666666667,
+        "ttft_median_ms": 2989.981524999166,
+        "ttft_p95_ms": 13796.822049000184,
+        "tpot_median_ms": 10.033081964538466,
+        "total_median_ms": 10113.52213599821,
+        "throughput_tps": 305.0720007782843,
+        "vram_peak_mib": 2840
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 89,
+      "success_rate": 0.9888888888888889
+    }
+  },
+  {
+    "run_id": "ctx16k-f16-06b-r2-20261016-224117",
+    "label": "kv_opt_0.6",
+    "note": "Qwen3-0.6B-Q8_0 · ctx 16384 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "kv_opt_0.6-20261016-224117",
+    "started_at": "2026-10-16T22:41:17+0800",
+    "duration_s": 251.2,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 3602,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 28,
+        "success_rate": 0.9333333333333333,
+        "ttft_median_ms": 23.69118499882461,
+        "ttft_p95_ms": 29.034298749138543,
+        "tpot_median_ms": 6.306529465105389,
+        "total_median_ms": 2686.952845000633,
+        "throughput_tps": 128.07883691930616,
+        "vram_peak_mib": 3593
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 166.44110749984975,
+        "ttft_p95_ms": 505.0200821995529,
+        "tpot_median_ms": 7.373896586953068,
+        "total_median_ms": 3865.742963998855,
+        "throughput_tps": 348.34176558178444,
+        "vram_peak_mib": 3643
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 2352.595909498632,
+        "ttft_p95_ms": 10384.482311249116,
+        "tpot_median_ms": 7.974048777030655,
+        "total_median_ms": 7501.265410000997,
+        "throughput_tps": 390.27810895131694,
+        "vram_peak_mib": 3651
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 88,
+      "success_rate": 0.9777777777777777
+    }
+  },
+  {
+    "run_id": "ctx16k-f16-17b-r1-20261016-224726",
+    "label": "ctx_baseline_1.7",
+    "note": "Qwen3-1.7B-Q8_0 · ctx 16384 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "ctx_baseline_1.7-20261016-224726",
+    "started_at": "2026-10-16T22:47:26+0800",
+    "duration_s": 590.6,
+    "model": "Qwen3-1.7B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 4757,
     "task_ids": [
       "P01",
       "P02",
@@ -472,50 +353,50 @@
         "n_requests": 30,
         "n_success": 26,
         "success_rate": 0.8666666666666667,
-        "ttft_median_ms": 25.022646999786957,
-        "ttft_p95_ms": 203.41575624934194,
-        "tpot_median_ms": 6.433701872724634,
-        "total_median_ms": 3946.8275630006247,
-        "throughput_tps": 93.2543138882402,
-        "vram_peak_mib": 7540
+        "ttft_median_ms": 30.8836855001573,
+        "ttft_p95_ms": 35.09919024963892,
+        "tpot_median_ms": 10.450911305688052,
+        "total_median_ms": 12020.774920500116,
+        "throughput_tps": 72.08476803316702,
+        "vram_peak_mib": 4788
       },
       "4": {
         "n_requests": 30,
-        "n_success": 30,
-        "success_rate": 1.0,
-        "ttft_median_ms": 168.0300094994891,
-        "ttft_p95_ms": 529.01579985064,
-        "tpot_median_ms": 7.123495829976998,
-        "total_median_ms": 3924.401083999328,
-        "throughput_tps": 363.42056539581966,
-        "vram_peak_mib": 5498
+        "n_success": 29,
+        "success_rate": 0.9666666666666667,
+        "ttft_median_ms": 244.41088900130126,
+        "ttft_p95_ms": 868.7318410018632,
+        "tpot_median_ms": 11.008308547724766,
+        "total_median_ms": 12605.386772000202,
+        "throughput_tps": 237.10853282696618,
+        "vram_peak_mib": 4818
       },
       "10": {
         "n_requests": 30,
-        "n_success": 30,
-        "success_rate": 1.0,
-        "ttft_median_ms": 2163.8596119992144,
-        "ttft_p95_ms": 11310.79681625015,
-        "tpot_median_ms": 7.93483639190491,
-        "total_median_ms": 9190.27570599792,
-        "throughput_tps": 434.4683447635705,
-        "vram_peak_mib": 5293
+        "n_success": 27,
+        "success_rate": 0.9,
+        "ttft_median_ms": 4749.105415998201,
+        "ttft_p95_ms": 25351.523609998185,
+        "tpot_median_ms": 12.104874100728534,
+        "total_median_ms": 18778.90560999731,
+        "throughput_tps": 239.21398161957674,
+        "vram_peak_mib": 4794
       }
     },
     "overall": {
       "n_requests": 90,
-      "n_success": 86,
-      "success_rate": 0.9555555555555556
+      "n_success": 82,
+      "success_rate": 0.9111111111111111
     }
   },
   {
-    "run_id": "web-1016-20261016-211614",
-    "label": "web-1016",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
-    "dir": "web-1016-20261016-211614",
-    "started_at": "2026-10-16T21:16:14+0800",
-    "duration_s": 102.3,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "run_id": "ctx32k-f16-17b-r1-20261016-225813",
+    "label": "ctx_opt_1.7",
+    "note": "Qwen3-1.7B-Q8_0 · ctx 32768 · KV f16/f16 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "ctx_opt_1.7-20261016-225813",
+    "started_at": "2026-10-16T22:58:13+0800",
+    "duration_s": 621.9,
+    "model": "Qwen3-1.7B-Q8_0.gguf",
     "quant": "Q8_0",
     "n_ctx": 32768,
     "total_slots": 4,
@@ -523,7 +404,7 @@
       "ngl": 99,
       "ctx": 32768
     },
-    "vram_after_load_mib": 5330,
+    "vram_after_load_mib": 6576,
     "task_ids": [
       "P01",
       "P02",
@@ -547,26 +428,260 @@
     "temperature": 0.0,
     "by_concurrency": {
       "1": {
-        "n_requests": 13,
-        "n_success": 11,
-        "success_rate": 0.8461538461538461,
-        "ttft_median_ms": 21.364792999520432,
-        "ttft_p95_ms": 950.2408964999631,
-        "tpot_median_ms": 5.434547635048108,
-        "total_median_ms": 4167.452198998944,
-        "throughput_tps": 95.29859397166085,
-        "vram_peak_mib": 7433
+        "n_requests": 30,
+        "n_success": 26,
+        "success_rate": 0.8666666666666667,
+        "ttft_median_ms": 30.723151001438964,
+        "ttft_p95_ms": 36.008489748383,
+        "tpot_median_ms": 10.494618407827506,
+        "total_median_ms": 11992.729535000763,
+        "throughput_tps": 71.93054324532731,
+        "vram_peak_mib": 6617
       },
       "4": {
-        "n_requests": 0,
+        "n_requests": 30,
+        "n_success": 25,
+        "success_rate": 0.8333333333333334,
+        "ttft_median_ms": 70.48170000052778,
+        "ttft_p95_ms": 890.4796061986416,
+        "tpot_median_ms": 10.83763456673851,
+        "total_median_ms": 11384.699262998765,
+        "throughput_tps": 165.13102836745563,
+        "vram_peak_mib": 6613
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 28,
+        "success_rate": 0.9333333333333333,
+        "ttft_median_ms": 2377.436401500745,
+        "ttft_p95_ms": 23802.30759254936,
+        "tpot_median_ms": 12.033942943319,
+        "total_median_ms": 18588.771431497662,
+        "throughput_tps": 224.74579252108973,
+        "vram_peak_mib": 6673
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 79,
+      "success_rate": 0.8777777777777778
+    }
+  },
+  {
+    "run_id": "ctx16k-q80-17b-r1-20261016-230952",
+    "label": "kv_opt_1.7",
+    "note": "Qwen3-1.7B-Q8_0 · ctx 16384 · KV q8_0/q8_0 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "kv_opt_1.7-20261016-230952",
+    "started_at": "2026-10-16T23:09:52+0800",
+    "duration_s": 603.4,
+    "model": "Qwen3-1.7B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 3948,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 28,
+        "success_rate": 0.9333333333333333,
+        "ttft_median_ms": 35.349911498997244,
+        "ttft_p95_ms": 40.02588920047856,
+        "tpot_median_ms": 9.776919118965354,
+        "total_median_ms": 11006.265103500482,
+        "throughput_tps": 88.83616751033232,
+        "vram_peak_mib": 4001
+      },
+      "4": {
+        "n_requests": 30,
+        "n_success": 27,
+        "success_rate": 0.9,
+        "ttft_median_ms": 277.79309600009583,
+        "ttft_p95_ms": 914.0810567005244,
+        "tpot_median_ms": 12.491635460527936,
+        "total_median_ms": 13968.972437993216,
+        "throughput_tps": 171.7222524840414,
+        "vram_peak_mib": 4001
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 27,
+        "success_rate": 0.9,
+        "ttft_median_ms": 2402.3168240019004,
+        "ttft_p95_ms": 28052.990489200598,
+        "tpot_median_ms": 15.220412270042011,
+        "total_median_ms": 22767.081346006307,
+        "throughput_tps": 193.78273458567628,
+        "vram_peak_mib": 4004
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 82,
+      "success_rate": 0.9111111111111111
+    }
+  },
+  {
+    "run_id": "ctx16k-q80-06b-r2-20261016-232040",
+    "label": "kv_opt_1.7",
+    "note": "Qwen3-0.6B-Q8_0 · ctx 16384 · KV q8_0/q8_0 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "kv_opt_1.7-20261016-232040",
+    "started_at": "2026-10-16T23:20:40+0800",
+    "duration_s": 142.0,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 2919,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 17,
+        "success_rate": 0.5666666666666667,
+        "ttft_median_ms": 24.579574004746974,
+        "ttft_p95_ms": 176.7429018029361,
+        "tpot_median_ms": 5.540461257003478,
+        "total_median_ms": 3808.035549998749,
+        "throughput_tps": 90.7327944282111,
+        "vram_peak_mib": 7250
+      },
+      "4": {
+        "n_requests": 30,
         "n_success": 0,
-        "success_rate": null,
+        "success_rate": 0.0,
         "ttft_median_ms": null,
         "ttft_p95_ms": null,
         "tpot_median_ms": null,
         "total_median_ms": null,
         "throughput_tps": null,
-        "vram_peak_mib": 5226
+        "vram_peak_mib": 1205
+      },
+      "10": {
+        "n_requests": 30,
+        "n_success": 0,
+        "success_rate": 0.0,
+        "ttft_median_ms": null,
+        "ttft_p95_ms": null,
+        "tpot_median_ms": null,
+        "total_median_ms": null,
+        "throughput_tps": null,
+        "vram_peak_mib": 1088
+      }
+    },
+    "overall": {
+      "n_requests": 90,
+      "n_success": 17,
+      "success_rate": 0.18888888888888888
+    }
+  },
+  {
+    "run_id": "ctx16k-q80-06b-r3-20261016-232906",
+    "label": "kv_opt_1.7",
+    "note": "Qwen3-0.6B-Q8_0 · ctx 16384 · KV q8_0/q8_0 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+    "dir": "kv_opt_1.7-20261016-232906",
+    "started_at": "2026-10-16T23:29:06+0800",
+    "duration_s": 156.1,
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "vram_after_load_mib": 2920,
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "by_concurrency": {
+      "1": {
+        "n_requests": 30,
+        "n_success": 30,
+        "success_rate": 1.0,
+        "ttft_median_ms": 26.1003144987626,
+        "ttft_p95_ms": 31.579878602860845,
+        "tpot_median_ms": 5.665990999215498,
+        "total_median_ms": 2904.2065314970387,
+        "throughput_tps": 176.09539315202335,
+        "vram_peak_mib": 2970
+      },
+      "4": {
+        "n_requests": 16,
+        "n_success": 11,
+        "success_rate": 0.6875,
+        "ttft_median_ms": 190.60275600349996,
+        "ttft_p95_ms": 490.8043190043827,
+        "tpot_median_ms": 8.433650202173261,
+        "total_median_ms": 5957.00496200152,
+        "throughput_tps": 187.72704349292675,
+        "vram_peak_mib": 2942
       },
       "10": {
         "n_requests": 0,
@@ -577,62 +692,13 @@
         "tpot_median_ms": null,
         "total_median_ms": null,
         "throughput_tps": null,
-        "vram_peak_mib": 5226
+        "vram_peak_mib": 2940
       }
     },
     "overall": {
-      "n_requests": 13,
-      "n_success": 11,
-      "success_rate": 0.8461538461538461
-    }
-  },
-  {
-    "run_id": "migratecheck-20261016-214816",
-    "label": "migratecheck",
-    "note": "Qwen3-0.6B-Q8_0 · ctx 32768 · KV f16/f16 · 5 任务 x 1 轮 x 并发[1] · seed 20261009 · max_tokens 128 · temp 0.0",
-    "dir": "migratecheck-20261016-214816",
-    "started_at": "2026-10-16T21:48:16+0800",
-    "duration_s": 12.4,
-    "model": "Qwen3-0.6B-Q8_0.gguf",
-    "quant": "Q8_0",
-    "n_ctx": 32768,
-    "total_slots": 4,
-    "server_args": {
-      "ngl": 99,
-      "ctx": 32768
-    },
-    "vram_after_load_mib": 5661,
-    "task_ids": [
-      "P01",
-      "P03",
-      "D01",
-      "D03",
-      "C01"
-    ],
-    "rounds": 1,
-    "concurrency": [
-      1
-    ],
-    "seed": 20261009,
-    "max_tokens": 128,
-    "temperature": 0.0,
-    "by_concurrency": {
-      "1": {
-        "n_requests": 5,
-        "n_success": 0,
-        "success_rate": 0.0,
-        "ttft_median_ms": null,
-        "ttft_p95_ms": null,
-        "tpot_median_ms": null,
-        "total_median_ms": null,
-        "throughput_tps": null,
-        "vram_peak_mib": 5669
-      }
-    },
-    "overall": {
-      "n_requests": 5,
-      "n_success": 0,
-      "success_rate": 0.0
+      "n_requests": 46,
+      "n_success": 41,
+      "success_rate": 0.8913043478260869
     }
   }
 ]

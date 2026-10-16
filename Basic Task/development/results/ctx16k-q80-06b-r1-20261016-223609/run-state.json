@@ -1,0 +1,17 @@
+{
+  "run_id": "ctx16k-q80-06b-r1-20261016-223609",
+  "label": "kv_baseline_0.6",
+  "state": "finished",
+  "started_at": "2026-10-16T22:36:09+0800",
+  "updated_at": "2026-10-16T22:40:10+0800",
+  "n_tasks": 10,
+  "rounds": 3,
+  "concurrency": [
+    1,
+    4,
+    10
+  ],
+  "n_requests_planned": 90,
+  "n_records_so_far": 90,
+  "finished_at": "2026-10-16T22:40:10+0800"
+}

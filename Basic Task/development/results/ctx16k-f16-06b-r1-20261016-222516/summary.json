@@ -1,0 +1,395 @@
+{
+  "run_id": "ctx16k-f16-06b-r1-20261016-222516",
+  "label": "ctx_baseline_0.6",
+  "finished_at": "2026-10-16T22:29:34+0800",
+  "duration_s": 258.1,
+  "cold_start": {
+    "request_id": "222527-fa851a40",
+    "task_id": "P01",
+    "status": "success",
+    "error_type": null,
+    "error_message": null,
+    "t_submit": 0.0,
+    "t_first": 0.02295185799812316,
+    "t_done": 0.7200829180001165,
+    "ttft_ms": 22.95185799812316,
+    "total_ms": 720.0829180001165,
+    "tpot_excl_first_ms": 5.321611145053383,
+    "tpot_incl_first_ms": 5.28129590910601,
+    "prompt_tokens": 152,
+    "output_tokens": 132,
+    "prompt_ms": 17.384,
+    "predicted_ms": 696.996,
+    "cache_hit_tokens": 68,
+    "output_text": "**主题：关于内部演示版本延期的说明**\n\n尊敬的客户：\n\n您好！\n\n感谢您一直以来对本工作室的支持与信任。我们原定于**周五**交付内部演示版本，但由于接口联调尚未完成，现将演示版本的交付时间调整为**下周二**，以确保联调工作的顺利推进。\n\n此次调整是基于当前项目进度的合理安排，我们已与客户确认新的演示安排，并将通过邮件进一步沟通后续的交付细节。如果您有任何疑问或需要进一步的信息，请随时与我们联系。\n\n感谢您的理解与支持！\n\n祝好，  \n[工作室负责人姓名]  \n[工作室名称]",
+    "output_chars": 243,
+    "finish_reason": "stop",
+    "n_chunks": 134,
+    "cancelled": false,
+    "http_status": 200,
+    "saw_done": true,
+    "prompt_tokens_source": "usage",
+    "output_tokens_source": "timings.predicted_n",
+    "prompt_n_computed": 84,
+    "phase": "cold_start",
+    "service_instance_pid": 101730
+  },
+  "warmup": [
+    {
+      "request_id": "222528-eb85be41",
+      "task_id": "P01",
+      "status": "success",
+      "error_type": null,
+      "error_message": null,
+      "t_submit": 0.0,
+      "t_first": 0.010932974000752438,
+      "t_done": 0.8272105859978183,
+      "ttft_ms": 10.932974000752438,
+      "total_ms": 827.2105859978183,
+      "tpot_excl_first_ms": 5.335147790830496,
+      "tpot_incl_first_ms": 5.300503974006921,
+      "prompt_tokens": 152,
+      "output_tokens": 154,
+      "prompt_ms": 5.307,
+      "predicted_ms": 816.024,
+      "cache_hit_tokens": 151,
+      "output_text": "**主题：关于内部演示版本延期的说明**\n\n尊敬的客户：\n\n您好！\n\n感谢您一直以来对本工作室的支持与信任。我们原定于**周五**交付内部演示版本，但由于接口联调尚未完成，现将演示版本的交付时间调整为**下周二**，以确保联调工作的顺利推进。\n\n此次调整是基于当前项目进度的合理安排，我们已与相关团队进行了充分沟通，并确认了新的交付时间。如果您有任何疑问或需要进一步的信息，请随时与我们联系。\n\n后续我们将继续推进项目，确保所有工作按时完成。如有任何问题，欢迎随时与我们联系。\n\n顺祝商祺！\n\n此致  \n敬礼！\n\n**工作室负责人**  \n[您的姓名]  \n[日期]",
+      "output_chars": 283,
+      "finish_reason": "stop",
+      "n_chunks": 156,
+      "cancelled": false,
+      "http_status": 200,
+      "saw_done": true,
+      "prompt_tokens_source": "usage",
+      "output_tokens_source": "timings.predicted_n",
+      "prompt_n_computed": 1,
+      "phase": "warmup",
+      "service_instance_pid": 101730
+    }
+  ],
+  "formal": {
+    "1": {
+      "n_requests": 30,
+      "n_success": 28,
+      "n_truncated": 2,
+      "n_service_lost": 0,
+      "n_failed": 0,
+      "n_timeout": 0,
+      "n_cancelled": 0,
+      "n_incomplete": 0,
+      "n_harness_error": 0,
+      "status_breakdown": {
+        "success": 28,
+        "truncated": 2
+      },
+      "success_rate": 0.9333333333333333,
+      "success_rate_note": "分母 = 本次运行的请求总数（含失败、中断、被截断与被取消的）；★ 只有自然跑完（finish_reason=stop / 收到 [DONE]）的才算成功；★ truncated = 输出撞上 max_tokens 被硬截断，输出残缺，不算成功也不算失败（是配置上限问题，不是服务问题）；★ service_lost = 请求过程中【模型服务消失】（崩溃/被杀），与 cancelled 不同 —— 后者是我们主动停的；harness_error 表示测试程序自身的 bug，不是模型问题",
+      "truncated_note": "本次有 2 条请求达到 max_tokens 上限被截断。这些输出不完整，代码类任务通常无法直接运行 —— 如需完整输出，请调大配置里的 max_tokens 后重跑。",
+      "service_lost_note": "本次运行期间模型服务全程可达。",
+      "ttft_ms": {
+        "n": 28,
+        "mean": 22.34853249956359,
+        "median": 24.18618299998343,
+        "p95": 27.462144100354635,
+        "min": 14.29216699762037,
+        "max": 28.191700999741443
+      },
+      "total_ms": {
+        "n": 28,
+        "mean": 4076.2772318214825,
+        "median": 2827.069576500435,
+        "p95": 8546.538026351664
+      },
+      "tpot_excl_first_ms": {
+        "n": 28,
+        "mean": 6.514748260444249,
+        "median": 6.610884406229133,
+        "p95": 7.089879338473587,
+        "note": "公式：(完成 − 首字) / (输出token − 1)，排除首 token"
+      },
+      "tokens": {
+        "output_total": 17437,
+        "output_mean": 622.75,
+        "prompt_total": 36722,
+        "cache_hit_total": 35060
+      },
+      "throughput": {
+        "window_s": 142.26633803400182,
+        "window_note": "该并发档的实测墙钟时间（从首个 wave 开始到最后一个 wave 结束，含排队与传输）",
+        "output_tokens_per_s": 122.5658876229213,
+        "requests_per_s": 0.21087208973376376,
+        "failed_counted": false,
+        "note": "失败请求不计入 token 吞吐（未产生输出）；分母用墙钟时间，不用逐请求相对时间推算"
+      },
+      "finish_reason": {
+        "stop": 28,
+        "length": 2
+      },
+      "finish_reason_note": "统计【全部请求】的服务端结束原因，不只成功的 —— 这样 stop / length / 缺失 三类都能看到，一眼能判断'输出有多少是被截断的'。缺失（unknown）表示流在服务端给出结束标记前就断了。",
+      "problems_by_task": {
+        "P04": {
+          "truncated": 2
+        }
+      },
+      "largest_inputs": [
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        }
+      ],
+      "concurrency": 1,
+      "wall_time_s": 142.26633803400182,
+      "vram_peak_mib": 3691
+    },
+    "4": {
+      "n_requests": 30,
+      "n_success": 30,
+      "n_truncated": 0,
+      "n_service_lost": 0,
+      "n_failed": 0,
+      "n_timeout": 0,
+      "n_cancelled": 0,
+      "n_incomplete": 0,
+      "n_harness_error": 0,
+      "status_breakdown": {
+        "success": 30
+      },
+      "success_rate": 1.0,
+      "success_rate_note": "分母 = 本次运行的请求总数（含失败、中断、被截断与被取消的）；★ 只有自然跑完（finish_reason=stop / 收到 [DONE]）的才算成功；★ truncated = 输出撞上 max_tokens 被硬截断，输出残缺，不算成功也不算失败（是配置上限问题，不是服务问题）；★ service_lost = 请求过程中【模型服务消失】（崩溃/被杀），与 cancelled 不同 —— 后者是我们主动停的；harness_error 表示测试程序自身的 bug，不是模型问题",
+      "truncated_note": "本次没有请求达到 max_tokens 上限。",
+      "service_lost_note": "本次运行期间模型服务全程可达。",
+      "ttft_ms": {
+        "n": 30,
+        "mean": 188.65237293333243,
+        "median": 150.49220800028706,
+        "p95": 494.9826195486819,
+        "min": 14.009856000484433,
+        "max": 526.857808999921
+      },
+      "total_ms": {
+        "n": 30,
+        "mean": 4807.961094567024,
+        "median": 3764.203754499249,
+        "p95": 9483.22941310107
+      },
+      "tpot_excl_first_ms": {
+        "n": 30,
+        "mean": 6.966931426861762,
+        "median": 6.95001626001067,
+        "p95": 7.733606125671665,
+        "note": "公式：(完成 − 首字) / (输出token − 1)，排除首 token"
+      },
+      "tokens": {
+        "output_total": 19984,
+        "output_mean": 666.1333333333333,
+        "prompt_total": 37032,
+        "cache_hit_total": 11498
+      },
+      "throughput": {
+        "window_s": 57.33635266800047,
+        "window_note": "该并发档的实测墙钟时间（从首个 wave 开始到最后一个 wave 结束，含排队与传输）",
+        "output_tokens_per_s": 348.53978444905704,
+        "requests_per_s": 0.5232282592810104,
+        "failed_counted": false,
+        "note": "失败请求不计入 token 吞吐（未产生输出）；分母用墙钟时间，不用逐请求相对时间推算"
+      },
+      "finish_reason": {
+        "stop": 30
+      },
+      "finish_reason_note": "统计【全部请求】的服务端结束原因，不只成功的 —— 这样 stop / length / 缺失 三类都能看到，一眼能判断'输出有多少是被截断的'。缺失（unknown）表示流在服务端给出结束标记前就断了。",
+      "problems_by_task": {},
+      "largest_inputs": [
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        }
+      ],
+      "concurrency": 4,
+      "wall_time_s": 57.33635266800047,
+      "vram_peak_mib": 3717
+    },
+    "10": {
+      "n_requests": 30,
+      "n_success": 29,
+      "n_truncated": 1,
+      "n_service_lost": 0,
+      "n_failed": 0,
+      "n_timeout": 0,
+      "n_cancelled": 0,
+      "n_incomplete": 0,
+      "n_harness_error": 0,
+      "status_breakdown": {
+        "success": 29,
+        "truncated": 1
+      },
+      "success_rate": 0.9666666666666667,
+      "success_rate_note": "分母 = 本次运行的请求总数（含失败、中断、被截断与被取消的）；★ 只有自然跑完（finish_reason=stop / 收到 [DONE]）的才算成功；★ truncated = 输出撞上 max_tokens 被硬截断，输出残缺，不算成功也不算失败（是配置上限问题，不是服务问题）；★ service_lost = 请求过程中【模型服务消失】（崩溃/被杀），与 cancelled 不同 —— 后者是我们主动停的；harness_error 表示测试程序自身的 bug，不是模型问题",
+      "truncated_note": "本次有 1 条请求达到 max_tokens 上限被截断。这些输出不完整，代码类任务通常无法直接运行 —— 如需完整输出，请调大配置里的 max_tokens 后重跑。",
+      "service_lost_note": "本次运行期间模型服务全程可达。",
+      "ttft_ms": {
+        "n": 29,
+        "mean": 3832.5330593791573,
+        "median": 2452.4479909996444,
+        "p95": 13842.206836400865,
+        "min": 28.756460000295192,
+        "max": 15948.470473998896
+      },
+      "total_ms": {
+        "n": 29,
+        "mean": 8907.677875965324,
+        "median": 8306.30070999905,
+        "p95": 19310.998134400143
+      },
+      "tpot_excl_first_ms": {
+        "n": 29,
+        "mean": 7.680371407008354,
+        "median": 7.88222619104538,
+        "p95": 8.626388239203179,
+        "note": "公式：(完成 − 首字) / (输出token − 1)，排除首 token"
+      },
+      "tokens": {
+        "output_total": 19001,
+        "output_mean": 655.2068965517242,
+        "prompt_total": 36877,
+        "cache_hit_total": 5595
+      },
+      "throughput": {
+        "window_s": 45.33440718699785,
+        "window_note": "该并发档的实测墙钟时间（从首个 wave 开始到最后一个 wave 结束，含排队与传输）",
+        "output_tokens_per_s": 419.1297775577749,
+        "requests_per_s": 0.6617490304054127,
+        "failed_counted": false,
+        "note": "失败请求不计入 token 吞吐（未产生输出）；分母用墙钟时间，不用逐请求相对时间推算"
+      },
+      "finish_reason": {
+        "stop": 29,
+        "length": 1
+      },
+      "finish_reason_note": "统计【全部请求】的服务端结束原因，不只成功的 —— 这样 stop / length / 缺失 三类都能看到，一眼能判断'输出有多少是被截断的'。缺失（unknown）表示流在服务端给出结束标记前就断了。",
+      "problems_by_task": {
+        "P04": {
+          "truncated": 1
+        }
+      },
+      "largest_inputs": [
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        },
+        {
+          "task_id": "D01",
+          "prompt_tokens": 2313
+        }
+      ],
+      "concurrency": 10,
+      "wall_time_s": 45.33440718699785,
+      "vram_peak_mib": 3664
+    }
+  },
+  "warmup_note": "冷启动与预热单独记录，不混入正式测试统计（题目要求）",
+  "overall_window_note": "overall 的统计窗口是各并发档墙钟时间之和，不含冷启动与预热",
+  "overall": {
+    "n_requests": 90,
+    "n_success": 87,
+    "n_truncated": 3,
+    "n_service_lost": 0,
+    "n_failed": 0,
+    "n_timeout": 0,
+    "n_cancelled": 0,
+    "n_incomplete": 0,
+    "n_harness_error": 0,
+    "status_breakdown": {
+      "success": 87,
+      "truncated": 3
+    },
+    "success_rate": 0.9666666666666667,
+    "success_rate_note": "分母 = 本次运行的请求总数（含失败、中断、被截断与被取消的）；★ 只有自然跑完（finish_reason=stop / 收到 [DONE]）的才算成功；★ truncated = 输出撞上 max_tokens 被硬截断，输出残缺，不算成功也不算失败（是配置上限问题，不是服务问题）；★ service_lost = 请求过程中【模型服务消失】（崩溃/被杀），与 cancelled 不同 —— 后者是我们主动停的；harness_error 表示测试程序自身的 bug，不是模型问题",
+    "truncated_note": "本次有 3 条请求达到 max_tokens 上限被截断。这些输出不完整，代码类任务通常无法直接运行 —— 如需完整输出，请调大配置里的 max_tokens 后重跑。",
+    "service_lost_note": "本次运行期间模型服务全程可达。",
+    "ttft_ms": {
+      "n": 87,
+      "mean": 1349.7561933331415,
+      "median": 49.83209599959082,
+      "p95": 8949.518766001716,
+      "min": 14.009856000484433,
+      "max": 15948.470473998896
+    },
+    "total_ms": {
+      "n": 87,
+      "mean": 5939.048893459846,
+      "median": 4658.592625000892,
+      "p95": 15416.333736398159
+    },
+    "tpot_excl_first_ms": {
+      "n": 87,
+      "mean": 7.059214539098093,
+      "median": 6.896199066231794,
+      "p95": 8.37099341470341,
+      "note": "公式：(完成 − 首字) / (输出token − 1)，排除首 token"
+    },
+    "tokens": {
+      "output_total": 56422,
+      "output_mean": 648.528735632184,
+      "prompt_total": 110631,
+      "cache_hit_total": 52153
+    },
+    "throughput": {
+      "window_s": 244.93709788900014,
+      "window_note": "该并发档的实测墙钟时间（从首个 wave 开始到最后一个 wave 结束，含排队与传输）",
+      "output_tokens_per_s": 230.35301914767174,
+      "requests_per_s": 0.367441276865238,
+      "failed_counted": false,
+      "note": "失败请求不计入 token 吞吐（未产生输出）；分母用墙钟时间，不用逐请求相对时间推算"
+    },
+    "finish_reason": {
+      "stop": 87,
+      "length": 3
+    },
+    "finish_reason_note": "统计【全部请求】的服务端结束原因，不只成功的 —— 这样 stop / length / 缺失 三类都能看到，一眼能判断'输出有多少是被截断的'。缺失（unknown）表示流在服务端给出结束标记前就断了。",
+    "problems_by_task": {
+      "P04": {
+        "truncated": 3
+      }
+    },
+    "largest_inputs": [
+      {
+        "task_id": "D01",
+        "prompt_tokens": 2313
+      },
+      {
+        "task_id": "D01",
+        "prompt_tokens": 2313
+      },
+      {
+        "task_id": "D01",
+        "prompt_tokens": 2313
+      }
+    ]
+  },
+  "service_instance": {
+    "pid_at_end": 101730,
+    "pid_at_start": 101730,
+    "note": "首尾 PID 记录；逐请求记录里另有 service_instance_pid 字段，可据此判断本次运行的请求是否跨了不同服务进程。"
+  },
+  "state": "finished"
+}

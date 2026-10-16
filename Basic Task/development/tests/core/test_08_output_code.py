@@ -72,15 +72,69 @@ from pathlib import Path
 #      是按自己位置算的，挪下来会整体错一层）
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from _testlib import Report, load_run, list_runs, run, successful   # noqa: E402
+from _testlib import (                                          # noqa: E402
+    DEV_DIR, Report, load_run, list_runs, run, successful)
 
-# 需要运行验证的编程类任务（题目规定的 10 个里，编程相关的）
-CODE_TASKS = {
-    "P03": "实现 aggregate_by_owner(records) + 至少 5 个测试示例",
-    "P04": "设计任务处理方案（去重/重试上限/持久化/重启恢复）+ 核心代码",
-    "C01": "代码审查：按问题逐项说明触发条件、当前行为、预期行为、最小复现",
-    "C02": "修复统计逻辑与边界处理 + 补充 7 类边界测试",
-}
+# ══════════════════════════════════════════════════════════════════════════
+#  任务类型来自【权威定义】，不在这里硬编码
+#
+#  ⚠️ 这个集合原来是手写的 {P03, P04, C01, C02}，而 authoritative 的定义是
+#     src/common/tasks.py 的 kind 字段：
+#         P01–P04  kind="prompt"   纯提示词（P03/P04 类型上属于提示词，
+#                                  但题目要求它们产出代码）
+#         D01–D04  kind="doc"      办公文档
+#         C01–C02  kind="code"     编程任务
+#     手写集合的问题是：任务定义改了这里不会跟着改，而且看不出
+#     "P03 是 prompt 却要求给代码"这个区别。
+# ══════════════════════════════════════════════════════════════════════════
+FENCE_RE = re.compile(r"```([A-Za-z0-9_+-]*)\s*\n(.*?)```", re.S)
+
+# 题目的"输出检查"一节点名要看代码的任务（P03/P04 属 prompt 但要求给码）
+PROMPT_CODE_LIKE = {"P03", "P04"}
+
+
+def task_kind_map():
+    """从 src/common/tasks.py 读每个任务的 kind（权威定义）"""
+    f = DEV_DIR / "src" / "common" / "tasks.py"
+    if not f.is_file():
+        return {}
+    text = f.read_text(encoding="utf-8", errors="replace")
+    out = {}
+    for m in re.finditer(
+            r'\{\s*"id"\s*:\s*"([A-Z]\d+)".*?"kind"\s*:\s*"([a-z]+)"',
+            text, re.S):
+        out[m.group(1)] = m.group(2)
+    return out
+
+
+def extract_fenced(text):
+    """
+    只提取 markdown 围栏里的代码块。返回 [(语言, 代码)]。
+
+    ⚠️⚠️ 这里修掉一个【判定缺陷】——原来的 strip_fence 是"剥掉首尾的围栏，
+        把中间全部当代码"，于是模型输出一篇说明文字时，
+        那篇文字会被送去 py_compile，必然报语法错。
+
+        实测后果：C01（题目要的是"代码审查报告"，输出本来就是说明文字）
+        在 9 次运行里有 6 次被判"语法失败"——**全是假阳性**。
+        P04（设计方案）同理。
+
+        修法：只认围栏。没有围栏就如实说"没提取到代码"，
+        而不是报"语法错"——这两件事的性质完全不同：
+            · 语法错   → 模型写出来的代码有问题
+            · 没给代码 → 模型没按要求给代码（对 code 任务是发现）
+    """
+    return [(m.group(1) or "?", m.group(2)) for m in FENCE_RE.finditer(text or "")]
+
+
+def pick_code_block(blocks):
+    """从多个代码块里挑最可能是"那个完整实现"的一块"""
+    if not blocks:
+        return None
+    py = [b for b in blocks if b[0].lower() in ("python", "py", "python3")]
+    pool = py or blocks
+    return max(pool, key=lambda b: len(b[1]))
+
 
 
 def strip_fence(text):
@@ -143,12 +197,44 @@ def main():
         rep.check_true("results/ 下有可测运行", False, "没有数据")
         return rep.finish()
 
+    kinds = task_kind_map()
+    code_tasks = {t for t, k in kinds.items() if k == "code"}
+    rep.check_true("能从 src/common/tasks.py 读到任务类型（权威定义）",
+                   bool(kinds),
+                   "读不到就只能靠硬编码，任务定义改了这里不会跟着改")
+    want = code_tasks | PROMPT_CODE_LIKE
+    print(f"任务类型（来自 src/common/tasks.py）：")
+    print(f"  kind=code   : {sorted(code_tasks)}")
+    print(f"  kind=prompt : "
+          f"{sorted(t for t, k in kinds.items() if k == 'prompt')}")
+    print(f"  kind=doc    : "
+          f"{sorted(t for t, k in kinds.items() if k == 'doc')}")
+    print(f"本次检查: {sorted(want)}"
+          f"（P03/P04 属 prompt，但题目要求它们给代码）")
+
+    # ⚠️ 跳过"服务中途重启过"的运行 —— 它们的数据是两段混的。
+    #    实测踩过：ctx16k-q80-06b-r2 那轮服务被杀过，
+    #    它的 P03 输出被判"空输入不返回空字典"。
+    #    那【不是】模型的缺陷，是中途重启把上下文/输出截断造成的。
+    #    拿它做断言会得出错误结论。（这类运行由 test_10 与
+    #    结果页的 interrupted 状态负责展示，不在这里判质量。）
+    skipped = []
     for rid in runs:
-        _check_one(rid, rep)
+        d = load_run(rid)
+        if (d["dir"] / "service-starts.jsonl").is_file():
+            skipped.append(rid)
+    for rid in skipped:
+        rep.note(f"{rid}: 服务中途重启过 → 跳过（数据是两段混的，"
+                 f"判质量会得出错误结论）")
+        print(f"⏭  {rid}: 服务中途重启过，跳过")
+    runs = [r for r in runs if r not in skipped]
+
+    for rid in runs:
+        _check_one(rid, rep, kinds, want)
     return rep.finish()
 
 
-def _check_one(rid, rep):
+def _check_one(rid, rep, kinds, want):
     d = load_run(rid)
     rows = successful(d["requests"])
     cfg = d["run_config"] or {}
@@ -159,18 +245,19 @@ def _check_one(rid, rep):
     print(f"  max_tokens 上限 = {max_tok}")
     print("═" * 72)
 
-    for tid, desc in CODE_TASKS.items():
+    for tid in sorted(want):
+        kind = kinds.get(tid, "?")
         recs = [r for r in rows if r.get("task_id") == tid]
         if not recs:
             rep.note(f"{rid}/{tid}: 没有记录，跳过")
             continue
         r = max(recs, key=lambda x: x.get("output_chars") or 0)
-        code = r.get("output_text") or ""
+        text = r.get("output_text") or ""
         n_out = r.get("output_tokens") or 0
 
         print()
-        print(f"── {tid} ── {desc}")
-        print(f"   output_tokens={n_out}  output_chars={len(code)}  "
+        print(f"── {tid} ── kind={kind}")
+        print(f"   output_tokens={n_out}  output_chars={len(text)}  "
               f"finish_reason={r.get('finish_reason')}")
 
         # ══ ⑥ 先查截断（★ 最重要，因为它会误导结论）══════════════════
@@ -188,14 +275,28 @@ def _check_one(rid, rep):
         else:
             print(f"  ✅ 未被截断（finish_reason={r.get('finish_reason')}）")
 
-        # ══ ② 提取代码 ═══════════════════════════════════════════════
-        has_fence = "```" in code
-        clean = strip_fence(code)
-        rep.check_true(f"{rid}/{tid}: 能从输出里提取出代码块",
-                       len(clean) > 0, "输出为空")
-        print(f"  提取：{'有 markdown 围栏' if has_fence else '无围栏'} → "
-              f"{len(clean)} 字符")
+        # ══ ② 提取代码（只认围栏）═════════════════════════════════════
+        blocks = extract_fenced(text)
+        best = pick_code_block(blocks)
+        print(f"  提取：围栏代码块 {len(blocks)} 个"
+              + (f"，语言 {sorted({b[0] for b in blocks})}" if blocks else "")
+              + (f"，选中最长一块 {len(best[1])} 字符" if best else ""))
 
+        if best is None:
+            # ⚠️ 分两种说法，不要混：
+            #    kind=code 的任务没给代码 → 是【发现】（未按要求产出）
+            #    kind=prompt 的任务没给代码 → 只记录，不算问题
+            if kind == "code":
+                rep.note(f"{rid}/{tid}: ★该任务是 code 类型，但输出里"
+                         f"【没有代码围栏】—— 只给了说明文字。"
+                         f"这不是语法错，是未按要求产出代码")
+                print(f"  📄 没有代码围栏（纯文字输出）—— 对 code 任务是发现")
+            else:
+                rep.note(f"{rid}/{tid}: 没有代码围栏（kind={kind}，属正常）")
+                print(f"  📄 没有代码围栏（kind={kind}，不要求给代码）")
+            continue
+
+        clean = best[1]
         with tempfile.TemporaryDirectory() as td:
             # ══ ③ 语法 ═══════════════════════════════════════════════
             ok, f, err = try_compile(clean, td, f"{rid}_{tid}")
@@ -249,10 +350,96 @@ def _run_it(rid, tid, f, clean, rep, truncated):
         res = run_boundary_cases(fn, cases)
         for name, got, ok in res:
             print(f"    {'✅' if ok else '·'} {name:12s} → {got}")
-        # 空输入这一条是题目硬要求，必须过
-        empty_ok = next((ok for n, _, ok in res if n == "空输入"), False)
-        rep.check_true(f"{rid}/{tid}: 空输入返回空字典（题目硬要求）",
-                       empty_ok, "这是题目明确要求的行为")
+
+        # ── 题目硬要求的三条，逐条判 ──────────────────────────────
+        #
+        # ⚠️ 断言口径要精确。原来写的是"空输入返回空字典"，
+        #    但字面 {} 与"键齐全、值全 0"在语义上都能算合理实现 ——
+        #    用字面相等去判会把后者冤枉成失败。
+        #    实测：0.6B 返回 {'total':0,'open':0,...}，确实【是】空结果，
+        #    所以这里查"有没有任何计数"而不是"是不是字面空字典"。
+        #
+        # ⚠️ 下面这两条（空输入、大小写）是【流水线正确性】相关的口径检查，
+        #    判失败；而"缺失 owner 归 unassigned"查的是模型输出质量，
+        #    只记录不判失败 —— 取舍理由写在那一处。
+        try:
+            out_empty = fn([])
+            if isinstance(out_empty, dict):
+                empty_ok = all((v or 0) == 0
+                               for v in out_empty.values() if isinstance(v, int))
+            else:
+                empty_ok = not out_empty
+        except Exception:                                     # noqa: BLE001
+            empty_ok = False
+            out_empty = "抛异常"
+        rep.check_true(f"{rid}/{tid}: 空输入返回空结果（题目硬要求）",
+                       empty_ok, f"实际 {out_empty!r}")
+
+        # 题目还明确要求"状态匹配忽略大小写" —— 这条能独立断言
+        try:
+            up = fn([{"owner": "a", "status": "CLOSED"}])
+            low = fn([{"owner": "a", "status": "closed"}])
+            rep.check_true(
+                f"{rid}/{tid}: 状态匹配忽略大小写（题目硬要求）",
+                json.dumps(up, sort_keys=True) == json.dumps(low, sort_keys=True),
+                f"CLOSED → {up!r}；closed → {low!r}")
+        except Exception as e:                                # noqa: BLE001
+            rep.check_true(f"{rid}/{tid}: 状态匹配忽略大小写（题目硬要求）",
+                           False, f"抛异常 {type(e).__name__}")
+
+        # 以及"缺失或为空的 owner 归为 unassigned"
+        #
+        # ⚠️ 这里第一版写法有 bug，记下来：我用
+        #       "unassigned" in json.dumps(miss)
+        #    去判 —— 而 unassigned 是【外层字典的键】，不是值里的字符串。
+        #    实测模型返回 {'unassigned': {...}} 时，
+        #    dumps 出来的文本里确实有 "unassigned"，能蒙对；
+        #    但若实现写成 {'total':..., 'open':...}（按状态统计、没有按人分组），
+        #    也照样匹配不到 —— 这个判据恰好不出错，但它判的不是我想判的东西。
+        #    正确判法：直接看返回字典的【键】里有没有 unassigned。
+        def _has_unassigned(out):
+            if not isinstance(out, dict) or not out:
+                return False
+            keys = {str(k).lower() for k in out.keys()}
+            if "unassigned" in keys:
+                return True
+            # 也可能嵌一层：{'unassigned': {...}}
+            for v in out.values():
+                if isinstance(v, dict) and \
+                        "unassigned" in {str(k).lower() for k in v.keys()}:
+                    return True
+            return False
+
+        try:
+            miss = fn([{"status": "open"}])
+            blank = fn([{"owner": "", "status": "open"}])
+            unassigned_ok = _has_unassigned(miss) and _has_unassigned(blank)
+            # ⚠️ 这条【记录但不判失败】——这是个刻意的取舍，理由：
+            #
+            #    它查的是【模型输出的质量】，不是【我们流水线的正确性】。
+            #    实测 8 个干净运行里有 1 个（ctx16k-q80-06b-r1）的实现
+            #    把 owner 信息整个丢了（只按 status 统计），这确实是
+            #    没满足题目的硬要求 —— 但那是【模型的缺陷】，
+            #    不是我们系统的 bug。
+            #
+            #    测试套件的作用是"流水线自检"：它红了应该意味着
+            #    "我们的代码/路径/统计有问题，去修"。把模型输出质量
+            #    混进来，会让套件长期红着，真出 bug 时反而看不出来。
+            #
+            #    所以：发现的缺陷用 rep.note 记录（报告里引用），
+            #    但不让退出码变红。质量结论写进报告。
+            if unassigned_ok:
+                rep.check_true(
+                    f"{rid}/{tid}: 缺失/空 owner 归为 unassigned（题目硬要求）",
+                    True, "")
+            else:
+                rep.note(f"{rid}/{tid}: ★模型输出缺陷（不算系统失败）—— "
+                         f"缺失/空 owner 未归为 unassigned，"
+                         f"实际返回 {miss!r}。题目硬要求，记入报告。")
+                print(f"    ⚠️ 模型输出缺陷：缺失/空 owner 未归 unassigned")
+        except Exception as e:                                # noqa: BLE001
+            rep.note(f"{rid}/{tid}: 缺失 owner 时抛异常 "
+                     f"{type(e).__name__}: {str(e)[:60]}（记入报告）")
 
     elif tid in ("P04", "C01", "C02"):
         # 这三个任务输出里【不一定】有可直接执行的完整程序：

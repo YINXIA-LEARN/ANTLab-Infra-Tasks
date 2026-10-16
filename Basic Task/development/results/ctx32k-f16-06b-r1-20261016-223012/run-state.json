@@ -1,0 +1,17 @@
+{
+  "run_id": "ctx32k-f16-06b-r1-20261016-223012",
+  "label": "ctx_oopt_0.6",
+  "state": "finished",
+  "started_at": "2026-10-16T22:30:12+0800",
+  "updated_at": "2026-10-16T22:34:24+0800",
+  "n_tasks": 10,
+  "rounds": 3,
+  "concurrency": [
+    1,
+    4,
+    10
+  ],
+  "n_requests_planned": 90,
+  "n_records_so_far": 90,
+  "finished_at": "2026-10-16T22:34:24+0800"
+}

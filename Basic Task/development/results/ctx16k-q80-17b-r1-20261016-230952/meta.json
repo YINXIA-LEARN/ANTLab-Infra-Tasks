@@ -1,0 +1,89 @@
+{
+  "run_id": "ctx16k-q80-17b-r1-20261016-230952",
+  "label": "kv_opt_1.7",
+  "started_at": "2026-10-16T23:09:52+0800",
+  "hardware": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700HX",
+    "cpu_count": 24,
+    "mem_total_mib": 11814,
+    "gpu": [
+      "NVIDIA GeForce RTX 5060 Laptop GPU, 8151 MiB, 573.22, 12.0"
+    ],
+    "cuda_version": "12.8"
+  },
+  "model": {
+    "model_path": "/home/yinxia/antlab/models/Qwen3-1.7B-Q8_0.gguf",
+    "model_name": "Qwen3-1.7B-Q8_0.gguf",
+    "quant": "Q8_0",
+    "n_ctx": 16384,
+    "total_slots": 4,
+    "build_info": "b1-9bf55f4",
+    "chat_template_present": true
+  },
+  "server_config": {
+    "models_registry": "/home/yinxia/antlab/ANTLab-Infra-Tasks/Basic Task/development/configs/models.json",
+    "active_model": "qwen3-0.6b-q8",
+    "server_args": {
+      "ngl": 99,
+      "ctx": 32768
+    },
+    "reasoning": null,
+    "runtime_active_model": "qwen3-0.6b-q8",
+    "process_cmdline": "/home/yinxia/antlab/src/llama.cpp/build/bin/llama-server -m /home/yinxia/antlab/models/Qwen3-1.7B-Q8_0.gguf -ngl 99 -c 16384 -ctk q8_0 -ctv q8_0 -v --cache-ram 0 --host 127.0.0.1 --port 8080",
+    "server_flags": {
+      "ngl": "99",
+      "ctx": "16384",
+      "np": null,
+      "cache_ram": "0",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "flash_attn": null,
+      "verbose": true,
+      "prompt_cache_disabled": true
+    },
+    "vram_after_load_mib": 3948,
+    "vram_total_mib": 8151
+  },
+  "load_config": {
+    "task_ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "D01",
+      "D02",
+      "D03",
+      "D04",
+      "C01",
+      "C02"
+    ],
+    "rounds": 3,
+    "concurrency_levels": [
+      1,
+      4,
+      10
+    ],
+    "seed": 20261009,
+    "order": "shuffled",
+    "max_tokens": 2048,
+    "temperature": 0.0,
+    "warmup": {
+      "enabled": true,
+      "n": 2,
+      "task_id": "P01"
+    },
+    "base_url": "http://127.0.0.1:8080"
+  },
+  "model_verified": {
+    "expected_from_config": "Qwen3-1.7B-Q8_0.gguf",
+    "actual_running": "Qwen3-1.7B-Q8_0.gguf",
+    "matches": true
+  },
+  "service_instance": {
+    "pid_at_start": 120187,
+    "pid_at_end": 120187,
+    "note": "首尾 PID 记录；逐请求记录里另有 service_instance_pid 字段，可据此判断本次运行的请求是否跨了不同服务进程。"
+  }
+}

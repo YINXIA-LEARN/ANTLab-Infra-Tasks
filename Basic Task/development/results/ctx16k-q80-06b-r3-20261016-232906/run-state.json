@@ -1,0 +1,18 @@
+{
+  "run_id": "ctx16k-q80-06b-r3-20261016-232906",
+  "label": "kv_opt_1.7",
+  "state": "aborted",
+  "started_at": "2026-10-16T23:29:06+0800",
+  "updated_at": "2026-10-16T23:31:42+0800",
+  "n_tasks": 10,
+  "rounds": 3,
+  "concurrency": [
+    1,
+    4,
+    10
+  ],
+  "n_requests_planned": 90,
+  "n_records_so_far": 46,
+  "aborted_by": "信号 2（SIGINT，测试被停止）",
+  "aborted_at": "2026-10-16T23:31:42+0800"
+}

@@ -1,0 +1,1406 @@
+{
+  "ctx16k-f16-06b-r1-20261016-222516": {
+    "ctx": 16384,
+    "kv": "f16/f16",
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1420,
+        "output_tokens": 979,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1060,
+        "output_tokens": 680,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 592,
+        "output_tokens": 361,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 937,
+        "output_tokens": 509,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx16k-f16-06b-r2-20261016-224117": {
+    "ctx": 16384,
+    "kv": "f16/f16",
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1538,
+        "output_tokens": 1077,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1060,
+        "output_tokens": 680,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 597,
+        "output_tokens": 365,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 853,
+        "output_tokens": 454,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx16k-f16-17b-r1-20261016-224726": {
+    "ctx": 16384,
+    "kv": "f16/f16",
+    "model": "Qwen3-1.7B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1922,
+        "output_tokens": 1221,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          },
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1388,
+        "output_tokens": 894,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 2298,
+        "output_tokens": 1367,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 2203,
+        "output_tokens": 1244,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx16k-q80-06b-r1-20261016-223609": {
+    "ctx": 16384,
+    "kv": "q8_0/q8_0",
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1433,
+        "output_tokens": 1030,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          },
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 999,
+        "output_tokens": 633,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 595,
+        "output_tokens": 365,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 972,
+        "output_tokens": 594,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx16k-q80-06b-r2-20261016-232040": {
+    "ctx": 16384,
+    "kv": "q8_0/q8_0",
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1259,
+        "output_tokens": 857,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 980,
+        "output_tokens": 639,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 373,
+        "output_tokens": 234,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 620,
+        "output_tokens": 375,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx16k-q80-06b-r3-20261016-232906": {
+    "ctx": 16384,
+    "kv": "q8_0/q8_0",
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1362,
+        "output_tokens": 917,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          },
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1003,
+        "output_tokens": 644,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 595,
+        "output_tokens": 364,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 636,
+        "output_tokens": 388,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx16k-q80-17b-r1-20261016-230952": {
+    "ctx": 16384,
+    "kv": "q8_0/q8_0",
+    "model": "Qwen3-1.7B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 2010,
+        "output_tokens": 1263,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          },
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1374,
+        "output_tokens": 880,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 2296,
+        "output_tokens": 1332,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 2699,
+        "output_tokens": 1531,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx32k-f16-06b-r1-20261016-223012": {
+    "ctx": 32768,
+    "kv": "f16/f16",
+    "model": "Qwen3-0.6B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1534,
+        "output_tokens": 1076,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          },
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1105,
+        "output_tokens": 754,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          },
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 422,
+        "output_tokens": 256,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 721,
+        "output_tokens": 452,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  },
+  "ctx32k-f16-17b-r1-20261016-225813": {
+    "ctx": 32768,
+    "kv": "f16/f16",
+    "model": "Qwen3-1.7B-Q8_0.gguf",
+    "tasks": {
+      "D01": {
+        "hit": [
+          {
+            "item": "现行演示日期 = 10 月 20 日",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "明确交代了演示日期的变更（原定/改为/调整）",
+            "category": "date_arbitration"
+          },
+          {
+            "item": "正式交付 10 月 23 日",
+            "category": "fact"
+          },
+          {
+            "item": "验收负责人 郑宁",
+            "category": "fact"
+          },
+          {
+            "item": "对外沟通窗口 林悦",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：updated_at 缺失",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：上传上限/命名规则待客户确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：历史工单状态映射待确认",
+            "category": "fact"
+          },
+          {
+            "item": "阻塞：平均处理耗时口径未定",
+            "category": "fact"
+          },
+          {
+            "item": "下一步行动表含 负责人/截止/依赖",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1970,
+        "output_tokens": 1257,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D02": {
+        "hit": [
+          {
+            "item": "已完成工作",
+            "category": "format"
+          },
+          {
+            "item": "当前问题",
+            "category": "format"
+          },
+          {
+            "item": "近期交付安排",
+            "category": "fact"
+          },
+          {
+            "item": "需要客户确认的事项",
+            "category": "format"
+          },
+          {
+            "item": "区分已批准与备选方案（后续评估项）",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入01-项目会议与进度资料.md",
+        "status": "success",
+        "chars": 1388,
+        "output_tokens": 894,
+        "truncated": false,
+        "verdict": "hit_all"
+      },
+      "D03": {
+        "hit": [
+          {
+            "item": "设备借用登记条款 C01",
+            "category": "clause"
+          },
+          {
+            "item": "VPN/设备接入 D05",
+            "category": "clause"
+          },
+          {
+            "item": "验收周补充流程",
+            "category": "format"
+          },
+          {
+            "item": "注明需确认的人员",
+            "category": "format"
+          }
+        ],
+        "miss": [
+          {
+            "item": "远程办公申请条款 A03",
+            "category": "clause"
+          },
+          {
+            "item": "客户资料处理 C03",
+            "category": "clause"
+          }
+        ],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 2334,
+        "output_tokens": 1391,
+        "truncated": false,
+        "verdict": "partial"
+      },
+      "D04": {
+        "hit": [
+          {
+            "item": "清单含事项/时间/角色/材料/条款",
+            "category": "format"
+          },
+          {
+            "item": "单独列出接触客户资料前的事项",
+            "category": "format"
+          },
+          {
+            "item": "工作地点/设备变化需补办的手续",
+            "category": "format"
+          }
+        ],
+        "miss": [],
+        "stale": [],
+        "needs_manual_review": null,
+        "source": "办公输入02-工作室内部管理制度.md",
+        "status": "success",
+        "chars": 2203,
+        "output_tokens": 1244,
+        "truncated": false,
+        "verdict": "hit_all"
+      }
+    }
+  }
+}

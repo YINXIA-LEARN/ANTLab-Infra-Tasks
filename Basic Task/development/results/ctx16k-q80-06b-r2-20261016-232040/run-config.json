@@ -1,0 +1,39 @@
+{
+  "base_url": "http://127.0.0.1:8080",
+  "input_dir": "/home/yinxia/antlab/ANTLab-Infra-Tasks/Basic Task/提示词与输入文档/输入文档",
+  "model_file": "Qwen3-0.6B-Q8_0.gguf",
+  "task_ids": [
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "D01",
+    "D02",
+    "D03",
+    "D04",
+    "C01",
+    "C02"
+  ],
+  "rounds": 3,
+  "concurrency": [
+    1,
+    4,
+    10
+  ],
+  "seed": 20261009,
+  "order": "shuffled",
+  "max_tokens": 2048,
+  "temperature": 0.0,
+  "timeout_s": 900,
+  "warmup": {
+    "enabled": true,
+    "n": 2,
+    "task_id": "P01"
+  },
+  "label": "ctx16k-q80-06b-r2-20261016",
+  "server_ctx": 16384,
+  "kv_type_k": "q8_0",
+  "kv_type_v": "q8_0",
+  "note": "Qwen3-0.6B-Q8_0 · ctx 16384 · KV q8_0/q8_0 · 10 任务 x 3 轮 x 并发[1, 4, 10] · seed 20261009 · max_tokens 2048 · temp 0.0",
+  "_label_说明": "本 label 由真实配置推导（原 label 'ctx16k-q80-06b-r2-20261016' 与配置不符，已修正）"
+}

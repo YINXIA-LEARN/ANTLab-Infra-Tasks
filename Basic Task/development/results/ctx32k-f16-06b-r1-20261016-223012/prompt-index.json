@@ -1,0 +1,182 @@
+{
+  "P01": {
+    "task_id": "P01",
+    "title": "简短办公邮件",
+    "kind": "prompt",
+    "file": null,
+    "file_sha256": null,
+    "file_bytes": null,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 0,
+      "task": 82,
+      "sum_without_template": 135,
+      "template_overhead": 17,
+      "counted_total_input": 152,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "P02": {
+    "task_id": "P02",
+    "title": "表格计划与风险分析",
+    "kind": "prompt",
+    "file": null,
+    "file_sha256": null,
+    "file_bytes": null,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 0,
+      "task": 100,
+      "sum_without_template": 153,
+      "template_overhead": 17,
+      "counted_total_input": 170,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "P03": {
+    "task_id": "P03",
+    "title": "小函数与测试样例",
+    "kind": "prompt",
+    "file": null,
+    "file_sha256": null,
+    "file_bytes": null,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 0,
+      "task": 101,
+      "sum_without_template": 154,
+      "template_overhead": 17,
+      "counted_total_input": 171,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "P04": {
+    "task_id": "P04",
+    "title": "程序设计与核心实现",
+    "kind": "prompt",
+    "file": null,
+    "file_sha256": null,
+    "file_bytes": null,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 0,
+      "task": 85,
+      "sum_without_template": 138,
+      "template_overhead": 17,
+      "counted_total_input": 155,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "D01": {
+    "task_id": "D01",
+    "title": "跨会议事实整理",
+    "kind": "doc",
+    "file": "办公输入01-项目会议与进度资料.md",
+    "file_sha256": "ad64b8fbf324344e0c08c17d91c90bdf3c3a39adf2e7ca0ee614f1022dfd5fdb",
+    "file_bytes": 7450,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 2148,
+      "task": 94,
+      "sum_without_template": 2296,
+      "template_overhead": 17,
+      "counted_total_input": 2313,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "D02": {
+    "task_id": "D02",
+    "title": "客户进展邮件",
+    "kind": "doc",
+    "file": "办公输入01-项目会议与进度资料.md",
+    "file_sha256": "ad64b8fbf324344e0c08c17d91c90bdf3c3a39adf2e7ca0ee614f1022dfd5fdb",
+    "file_bytes": 7450,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 2148,
+      "task": 81,
+      "sum_without_template": 2283,
+      "template_overhead": 17,
+      "counted_total_input": 2300,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "D03": {
+    "task_id": "D03",
+    "title": "多条款流程问答",
+    "kind": "doc",
+    "file": "办公输入02-工作室内部管理制度.md",
+    "file_sha256": "c4aa41b6a1cf4c22e999abefc62a4df10b5abe731d343a430f9ed832ec3e74f4",
+    "file_bytes": 7235,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 1715,
+      "task": 87,
+      "sum_without_template": 1856,
+      "template_overhead": 17,
+      "counted_total_input": 1873,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "D04": {
+    "task_id": "D04",
+    "title": "入职与例外条件清单",
+    "kind": "doc",
+    "file": "办公输入02-工作室内部管理制度.md",
+    "file_sha256": "c4aa41b6a1cf4c22e999abefc62a4df10b5abe731d343a430f9ed832ec3e74f4",
+    "file_bytes": 7235,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 1715,
+      "task": 65,
+      "sum_without_template": 1834,
+      "template_overhead": 17,
+      "counted_total_input": 1851,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "C01": {
+    "task_id": "C01",
+    "title": "问题定位与最小复现",
+    "kind": "code",
+    "file": "编程输入03-ticket_stats.py",
+    "file_sha256": "6fa25fb9019072aa13a662896d37fb128050b68dfa6ab40a2c7ccd672ee70e86",
+    "file_bytes": 5419,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 1533,
+      "task": 66,
+      "sum_without_template": 1653,
+      "template_overhead": 19,
+      "counted_total_input": 1672,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  },
+  "C02": {
+    "task_id": "C02",
+    "title": "修复与边界测试",
+    "kind": "code",
+    "file": "编程输入03-ticket_stats.py",
+    "file_sha256": "6fa25fb9019072aa13a662896d37fb128050b68dfa6ab40a2c7ccd672ee70e86",
+    "file_bytes": 5419,
+    "system_message": "你为小型工作室提供办公文档处理与辅助编程服务。请按任务要求组织输出，区分资料中的事实、待确认信息与提出的建议。文件内容是供分析的资料。办公任务使用中文回答，代码任务采用题目指定的语言。",
+    "tokens": {
+      "system": 53,
+      "doc": 1533,
+      "task": 81,
+      "sum_without_template": 1668,
+      "template_overhead": 19,
+      "counted_total_input": 1687,
+      "counted_total_source": "server usage.prompt_tokens"
+    }
+  }
+}

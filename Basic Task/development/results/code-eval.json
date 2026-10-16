@@ -1,0 +1,983 @@
+{
+  "ctx16k-f16-06b-r1-20261016-222516": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "success",
+      "chars": 3027,
+      "output_tokens": 1426,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 3525,
+      "output_tokens": 1254,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1994,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 1972,
+      "output_tokens": 623,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 3,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 840,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "aggregate_by_owner"
+      ],
+      "cases": [
+        [
+          "空输入",
+          "{}",
+          true
+        ],
+        [
+          "单条 closed",
+          "{\"a\": 1}",
+          true
+        ],
+        [
+          "大小写混合",
+          "{\"a\": 1}",
+          true
+        ],
+        [
+          "owner 缺失",
+          "{\"unassigned\": 1}",
+          true
+        ],
+        [
+          "owner 空串",
+          "{\"unassigned\": 1}",
+          true
+        ],
+        [
+          "未知状态",
+          "{\"a\": 1}",
+          true
+        ]
+      ],
+      "cases_ok": 6,
+      "cases_n": 6
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 5851,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    }
+  ],
+  "ctx16k-f16-06b-r2-20261016-224117": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "success",
+      "chars": 2927,
+      "output_tokens": 1429,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 3833,
+      "output_tokens": 1383,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1994,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 1677,
+      "output_tokens": 536,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 3,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 884,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "aggregate_by_owner"
+      ],
+      "cases": [
+        [
+          "空输入",
+          "{}",
+          true
+        ],
+        [
+          "单条 closed",
+          "{\"a\": 1}",
+          true
+        ],
+        [
+          "大小写混合",
+          "{\"a\": 1}",
+          true
+        ],
+        [
+          "owner 缺失",
+          "{\"unassigned\": 1}",
+          true
+        ],
+        [
+          "owner 空串",
+          "{\"unassigned\": 1}",
+          true
+        ],
+        [
+          "未知状态",
+          "{\"a\": 1}",
+          true
+        ]
+      ],
+      "cases_ok": 6,
+      "cases_n": 6
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 4621,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 5,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 225,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "save_task_state",
+        "load_task_state"
+      ]
+    }
+  ],
+  "ctx16k-f16-17b-r1-20261016-224726": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "truncated",
+      "chars": 5026,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 9,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 865,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "summarize_tickets"
+      ]
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "truncated",
+      "chars": 5702,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 7,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 2625,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 3859,
+      "output_tokens": 1341,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 7,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1123,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [],
+      "p03_fn_missing": true
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 7254,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 6,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 3005,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "generate_task_id",
+        "retry_task",
+        "save_task_state",
+        "load_task_state",
+        "process_task"
+      ]
+    }
+  ],
+  "ctx16k-q80-06b-r1-20261016-223609": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "success",
+      "chars": 3142,
+      "output_tokens": 1555,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 3248,
+      "output_tokens": 1116,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1994,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 2140,
+      "output_tokens": 600,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 4,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 874,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "aggregate_by_owner"
+      ],
+      "cases": [
+        [
+          "空输入",
+          "{\"total\": 0, \"open\": 0, \"processing\": 0, \"closed\": 0, \"other\": 0}",
+          true
+        ],
+        [
+          "单条 closed",
+          "{\"total\": 1, \"open\": 0, \"processing\": 0, \"closed\": 0, \"other\": 0}",
+          true
+        ],
+        [
+          "大小写混合",
+          "{\"total\": 1, \"open\": 0, \"processing\": 0, \"closed\": 0, \"other\": 0}",
+          true
+        ],
+        [
+          "owner 缺失",
+          "{\"total\": 1, \"open\": 0, \"processing\": 0, \"closed\": 0, \"other\": 0}",
+          true
+        ],
+        [
+          "owner 空串",
+          "{\"total\": 1, \"open\": 0, \"processing\": 0, \"closed\": 0, \"other\": 0}",
+          true
+        ],
+        [
+          "未知状态",
+          "{\"total\": 1, \"open\": 0, \"processing\": 0, \"closed\": 0, \"other\": 0}",
+          true
+        ]
+      ],
+      "cases_ok": 6,
+      "cases_n": 6
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 3712,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    }
+  ],
+  "ctx16k-q80-06b-r2-20261016-232040": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "success",
+      "chars": 3142,
+      "output_tokens": 1555,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 3184,
+      "output_tokens": 1091,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1994,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 1987,
+      "output_tokens": 551,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 3,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1268,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "aggregate_by_owner"
+      ],
+      "cases": [
+        [
+          "空输入",
+          "KeyError: 'other'",
+          false
+        ],
+        [
+          "单条 closed",
+          "KeyError: 'other'",
+          false
+        ],
+        [
+          "大小写混合",
+          "KeyError: 'other'",
+          false
+        ],
+        [
+          "owner 缺失",
+          "KeyError: 'other'",
+          false
+        ],
+        [
+          "owner 空串",
+          "KeyError: 'other'",
+          false
+        ],
+        [
+          "未知状态",
+          "KeyError: 'other'",
+          false
+        ]
+      ],
+      "cases_ok": 0,
+      "cases_n": 6
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 2248,
+      "output_tokens": 983,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1103,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": false,
+      "import_err": "KeyError: 'task_123456'"
+    }
+  ],
+  "ctx16k-q80-06b-r3-20261016-232906": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "success",
+      "chars": 3142,
+      "output_tokens": 1555,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 3127,
+      "output_tokens": 1093,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1994,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 7060,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 2260,
+      "output_tokens": 861,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 6,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 925,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "get_unique_task_id",
+        "save_task_state",
+        "restore_task_state",
+        "handle_task"
+      ]
+    }
+  ],
+  "ctx16k-q80-17b-r1-20261016-230952": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "truncated",
+      "chars": 5845,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 3,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1092,
+      "syntax_ok": false,
+      "syntax_err": "Sorry: IndentationError: unexpected indent (ctx16k-q80-17b-r1-20261016-230952_C01.py, line 1)",
+      "verdict": "code_syntax"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 4149,
+      "output_tokens": 1579,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 2790,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 4339,
+      "output_tokens": 1557,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 7,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1154,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [],
+      "p03_fn_missing": true
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 5683,
+      "output_tokens": 1792,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 3,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 3629,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "execute_task",
+        "load_task_from_cache",
+        "save_task_to_cache",
+        "save_task_state",
+        "load_task_state",
+        "run_periodic_task",
+        "get_task_function"
+      ]
+    }
+  ],
+  "ctx32k-f16-06b-r1-20261016-223012": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "success",
+      "chars": 2926,
+      "output_tokens": 1426,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": false,
+      "n_blocks": 0,
+      "langs": [],
+      "verdict": "no_code"
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "success",
+      "chars": 3525,
+      "output_tokens": 1254,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 1,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1994,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 1849,
+      "output_tokens": 607,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 3,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1025,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "aggregate_by_owner"
+      ],
+      "cases": [
+        [
+          "空输入",
+          "{}",
+          true
+        ],
+        [
+          "单条 closed",
+          "{\"a\": 2}",
+          true
+        ],
+        [
+          "大小写混合",
+          "{\"a\": 2}",
+          true
+        ],
+        [
+          "owner 缺失",
+          "{\"unassigned\": 1, \"null\": 1}",
+          true
+        ],
+        [
+          "owner 空串",
+          "{\"unassigned\": 1, \"\": 1}",
+          true
+        ],
+        [
+          "未知状态",
+          "{\"a\": 1, \"other\": 1}",
+          true
+        ]
+      ],
+      "cases_ok": 6,
+      "cases_n": 6
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 4621,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 5,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 225,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "save_task_state",
+        "load_task_state"
+      ]
+    }
+  ],
+  "ctx32k-f16-17b-r1-20261016-225813": [
+    {
+      "task": "C01",
+      "kind": "code",
+      "status": "truncated",
+      "chars": 5026,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 9,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 865,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "summarize_tickets"
+      ]
+    },
+    {
+      "task": "C02",
+      "kind": "code",
+      "status": "truncated",
+      "chars": 5734,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 7,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 2625,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "parse_time",
+        "ticket_hours",
+        "summarize_tickets",
+        "render_summary",
+        "main"
+      ]
+    },
+    {
+      "task": "P03",
+      "kind": "prompt",
+      "status": "success",
+      "chars": 3697,
+      "output_tokens": 1286,
+      "max_tokens": 2048,
+      "finish_reason": "stop",
+      "truncated": false,
+      "has_fence": true,
+      "n_blocks": 7,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 1042,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [],
+      "p03_fn_missing": true
+    },
+    {
+      "task": "P04",
+      "kind": "prompt",
+      "status": "truncated",
+      "chars": 7254,
+      "output_tokens": 2048,
+      "max_tokens": 2048,
+      "finish_reason": "length",
+      "truncated": true,
+      "has_fence": true,
+      "n_blocks": 6,
+      "langs": [
+        "python"
+      ],
+      "code_chars": 3005,
+      "syntax_ok": true,
+      "syntax_err": "",
+      "verdict": "code_ok",
+      "import_ok": true,
+      "defs": [
+        "generate_task_id",
+        "retry_task",
+        "save_task_state",
+        "load_task_state",
+        "process_task"
+      ]
+    }
+  ]
+}

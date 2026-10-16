@@ -1,0 +1,17 @@
+{
+  "run_id": "ctx16k-q80-17b-r1-20261016-230952",
+  "label": "kv_opt_1.7",
+  "state": "finished",
+  "started_at": "2026-10-16T23:09:52+0800",
+  "updated_at": "2026-10-16T23:19:56+0800",
+  "n_tasks": 10,
+  "rounds": 3,
+  "concurrency": [
+    1,
+    4,
+    10
+  ],
+  "n_requests_planned": 90,
+  "n_records_so_far": 90,
+  "finished_at": "2026-10-16T23:19:56+0800"
+}
