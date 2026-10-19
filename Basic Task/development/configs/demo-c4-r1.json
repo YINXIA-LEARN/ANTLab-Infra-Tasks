@@ -1,0 +1,44 @@
+{
+  "label": "demo-c4-r1",
+  "_说明": [
+    "演示用预设：全部 10 个规定任务，2 轮，固定 4 并发。",
+    "",
+    "为什么这样设：",
+    "    4 并发正好等于默认 slot 数。演示时能同时看到 4 个请求在跑，",
+    "    又不会因为超过 slot 数而排队 —— 画面清楚，等待也不长。",
+    "    2 轮用来观察同一负载下的波动；规模小、跑得快，适合现场演示。",
+    "",
+    "规模：10 任务 × 2 轮 × 并发[4] = 20 个请求。",
+    "    对比 baseline-full.json 的 90 个请求，这个大约 1/4 的量。",
+    "",
+    "max_tokens=2048 沿用正式配置的值：",
+    "    1024 时 C01 会出现 finish_reason=length（被硬截断），",
+    "    截断会低估吞吐量，也让不同轮次的数据不可比。",
+    "",
+    "⚠️ 这是【演示预设】，不是正式考核数据。",
+    "   写报告、做统计请用 baseline-full.json 那种 3 轮 × 3 并发档的配置。"
+  ],
+  "note": "0.6B Q8_0 全层上卡 · 默认 4 slot · kv_unified 共享池 · Flash Attention 开 · 10 任务 x 2 轮 x 并发[4] · seed 20261009 · max_tokens 2048 · temp 0",
+  "_note_规范": [
+    "note 只写【本轮自己】的参数，做成自洽的事实陈述。",
+    "这里没有写 -c，是因为上下文由服务当前配置决定（models.json 的",
+    "server_args.ctx），实际值会被 run_bench 记进 run-config.json 的 server_ctx。",
+    "写死一个数字，换模型或改上下文之后这句就变成错的。"
+  ],
+
+  "base_url": "http://127.0.0.1:8080",
+  "input_dir": "/home/yinxia/antlab/ANTLab-Infra-Tasks/Basic Task/提示词与输入文档/输入文档",
+  "model_file": "Qwen3-0.6B-Q8_0.gguf",
+
+  "task_ids": ["P01", "P02", "P03", "P04", "D01", "D02", "D03", "D04", "C01", "C02"],
+  "rounds": 2,
+  "concurrency": [4],
+  "seed": 20261009,
+  "order": "shuffled",
+
+  "max_tokens": 2048,
+  "temperature": 0.0,
+  "timeout_s": 900,
+
+  "warmup": { "enabled": true, "n": 2, "task_id": "P01" }
+}
