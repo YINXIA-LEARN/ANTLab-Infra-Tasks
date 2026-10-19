@@ -1,0 +1,87 @@
+{
+  "name": "S1-单文档重复",
+  "desc": "同一份大文档连问 10 次，理想情况只有第一次要全量算",
+  "max_tokens": 96,
+  "requests": [
+    {
+      "id": "S1-单文档重复-r01",
+      "at_ms": 0,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r02",
+      "at_ms": 1200,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r03",
+      "at_ms": 2400,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r04",
+      "at_ms": 3600,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r05",
+      "at_ms": 4800,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r06",
+      "at_ms": 6000,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r07",
+      "at_ms": 7200,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r08",
+      "at_ms": 8400,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r09",
+      "at_ms": 9600,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S1-单文档重复-r10",
+      "at_ms": 10800,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U01",
+      "max_tokens": 96
+    }
+  ]
+}

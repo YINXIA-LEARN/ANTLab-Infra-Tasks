@@ -1,0 +1,79 @@
+{
+  "name": "S6-跨重启",
+  "desc": "配合 --restart-first 使用：重启后 L2 清空、L3 保留",
+  "max_tokens": 96,
+  "requests": [
+    {
+      "id": "S6-跨重启-r01",
+      "at_ms": 0,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r02",
+      "at_ms": 2500,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r03",
+      "at_ms": 5000,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r04",
+      "at_ms": 7500,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r05",
+      "at_ms": 10000,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r06",
+      "at_ms": 12500,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r07",
+      "at_ms": 15000,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r08",
+      "at_ms": 17500,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S6-跨重启-r09",
+      "at_ms": 20000,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U03",
+      "max_tokens": 96
+    }
+  ]
+}

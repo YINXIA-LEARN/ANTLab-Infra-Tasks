@@ -1,0 +1,24 @@
+{
+  "_comment": "进阶项目缓存代理配置。改动 server_fingerprint 会让旧缓存自动作废。模型服务固定在 8092（8080 留给基础项目）。",
+
+  "proxy_port": 8091,
+  "upstream": "http://127.0.0.1:8092",
+
+  "num_slots": 4,
+  "server_ctx": 32768,
+  "kv_type": "f16",
+  "server_fingerprint": "qwen3-0.6b-q8_0|np4|c32768|f16f16|port8092",
+
+  "l2_dir": "/dev/shm/antlab_kv/L2",
+  "l3_dir": "kv_cache/L3",
+  "l2_quota_bytes": 3758096384,
+  "l3_quota_bytes": 17179869184,
+
+  "l2_spill_ratio": 0.30,
+  "l3_evict_ratio": 0.20,
+  "spill_cooldown_s": 5.0,
+
+  "prefix_reuse_min_ratio": 0.5,
+
+  "events_path": "results/_live/events.jsonl"
+}

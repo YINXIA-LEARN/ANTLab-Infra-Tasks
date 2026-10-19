@@ -1,0 +1,127 @@
+{
+  "name": "S3-大文档竞争",
+  "desc": "3 份大文档各问 5 次，看 L2 与 L3 的分布",
+  "max_tokens": 96,
+  "requests": [
+    {
+      "id": "S3-大文档竞争-r01",
+      "at_ms": 0,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r02",
+      "at_ms": 2500,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r03",
+      "at_ms": 5000,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r04",
+      "at_ms": 7500,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r05",
+      "at_ms": 10000,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r06",
+      "at_ms": 12500,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r07",
+      "at_ms": 15000,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r08",
+      "at_ms": 17500,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r09",
+      "at_ms": 20000,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r10",
+      "at_ms": 22500,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r11",
+      "at_ms": 25000,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r12",
+      "at_ms": 27500,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r13",
+      "at_ms": 30000,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r14",
+      "at_ms": 32500,
+      "doc": "large/proj-b-知识库迁移项目全记录.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S3-大文档竞争-r15",
+      "at_ms": 35000,
+      "doc": "large/proj-c-工单系统重构项目全记录.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U03",
+      "max_tokens": 96
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "name": "S5-版本更新",
+  "desc": "v1 问 3 次后切到 v2。二轮要求：v2 必须用新事实，且能复用前缀",
+  "max_tokens": 96,
+  "requests": [
+    {
+      "id": "S5-版本更新-r01",
+      "at_ms": 0,
+      "doc": "versions/知识库-v1.md",
+      "q": "设备借用期限是几天？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S5-版本更新-r02",
+      "at_ms": 2000,
+      "doc": "versions/知识库-v1.md",
+      "q": "设备借用期限是几天？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S5-版本更新-r03",
+      "at_ms": 4000,
+      "doc": "versions/知识库-v1.md",
+      "q": "设备借用期限是几天？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S5-版本更新-r04",
+      "at_ms": 6000,
+      "doc": "versions/知识库-v2.md",
+      "q": "设备借用期限是几天？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S5-版本更新-r05",
+      "at_ms": 8000,
+      "doc": "versions/知识库-v2.md",
+      "q": "设备借用期限是几天？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S5-版本更新-r06",
+      "at_ms": 10000,
+      "doc": "versions/知识库-v2.md",
+      "q": "设备借用期限是几天？",
+      "user": "U02",
+      "max_tokens": 96
+    }
+  ]
+}

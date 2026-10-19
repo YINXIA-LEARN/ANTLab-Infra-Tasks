@@ -1,0 +1,287 @@
+{
+  "name": "S4-冷热混合",
+  "desc": "热 2 份各 10 次 + 温 3 份各 3 次 + 冷 6 份各 1 次 → 测淘汰",
+  "max_tokens": 96,
+  "requests": [
+    {
+      "id": "S4-冷热混合-r01",
+      "at_ms": 0,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r02",
+      "at_ms": 800,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r03",
+      "at_ms": 1600,
+      "doc": "small/delta-数据备份策略.md",
+      "q": "责任人需要做什么？",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r04",
+      "at_ms": 2400,
+      "doc": "small/epsilon-会议纪要模板.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U05",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r05",
+      "at_ms": 3200,
+      "doc": "small/eta-客户资料分级.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r06",
+      "at_ms": 4000,
+      "doc": "small/gamma-设备借用登记.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r07",
+      "at_ms": 5500,
+      "doc": "small/theta-交付验收清单.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U07",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r08",
+      "at_ms": 7000,
+      "doc": "small/zeta-远程办公申请.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r09",
+      "at_ms": 8500,
+      "doc": "versions/知识库-v1.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r10",
+      "at_ms": 10000,
+      "doc": "versions/知识库-v2.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r11",
+      "at_ms": 11500,
+      "doc": "large/proj-a-星桥门户项目全记录.md",
+      "q": "责任人需要做什么？",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r12",
+      "at_ms": 13000,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r13",
+      "at_ms": 13800,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "责任人需要做什么？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r14",
+      "at_ms": 14600,
+      "doc": "small/delta-数据备份策略.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r15",
+      "at_ms": 15400,
+      "doc": "small/epsilon-会议纪要模板.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U05",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r16",
+      "at_ms": 16200,
+      "doc": "small/eta-客户资料分级.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r17",
+      "at_ms": 17000,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "责任人需要做什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r18",
+      "at_ms": 17800,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r19",
+      "at_ms": 18600,
+      "doc": "small/delta-数据备份策略.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r20",
+      "at_ms": 19400,
+      "doc": "small/epsilon-会议纪要模板.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U05",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r21",
+      "at_ms": 20200,
+      "doc": "small/eta-客户资料分级.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r22",
+      "at_ms": 21000,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r23",
+      "at_ms": 21800,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r24",
+      "at_ms": 22600,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r25",
+      "at_ms": 23400,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r26",
+      "at_ms": 24200,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r27",
+      "at_ms": 25000,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r28",
+      "at_ms": 25800,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r29",
+      "at_ms": 26600,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r30",
+      "at_ms": 27400,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r31",
+      "at_ms": 28200,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r32",
+      "at_ms": 29000,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r33",
+      "at_ms": 29800,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r34",
+      "at_ms": 30600,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S4-冷热混合-r35",
+      "at_ms": 31400,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "责任人需要做什么？",
+      "user": "U02",
+      "max_tokens": 96
+    }
+  ]
+}

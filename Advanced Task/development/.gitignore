@@ -1,0 +1,7 @@
+# 运行时状态（缓存索引、事件、日志、pid）
+kv_index.json
+logs/
+.runtime/
+results/_live/
+__pycache__/
+*.py[cod]

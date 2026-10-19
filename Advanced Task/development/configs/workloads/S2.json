@@ -1,0 +1,199 @@
+{
+  "name": "S2-小文档轮转",
+  "desc": "8 份小文档各问 3 次，槽只有 4 个 → 必然换入换出",
+  "max_tokens": 96,
+  "requests": [
+    {
+      "id": "S2-小文档轮转-r01",
+      "at_ms": 0,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r02",
+      "at_ms": 700,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r03",
+      "at_ms": 1400,
+      "doc": "small/delta-数据备份策略.md",
+      "q": "责任人需要做什么？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r04",
+      "at_ms": 2100,
+      "doc": "small/epsilon-会议纪要模板.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r05",
+      "at_ms": 2800,
+      "doc": "small/eta-客户资料分级.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U05",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r06",
+      "at_ms": 3500,
+      "doc": "small/gamma-设备借用登记.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r07",
+      "at_ms": 4200,
+      "doc": "small/theta-交付验收清单.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U07",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r08",
+      "at_ms": 4900,
+      "doc": "small/zeta-远程办公申请.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r09",
+      "at_ms": 5600,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r10",
+      "at_ms": 6300,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r11",
+      "at_ms": 7000,
+      "doc": "small/delta-数据备份策略.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r12",
+      "at_ms": 7700,
+      "doc": "small/epsilon-会议纪要模板.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r13",
+      "at_ms": 8400,
+      "doc": "small/eta-客户资料分级.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U05",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r14",
+      "at_ms": 9100,
+      "doc": "small/gamma-设备借用登记.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r15",
+      "at_ms": 9800,
+      "doc": "small/theta-交付验收清单.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U07",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r16",
+      "at_ms": 10500,
+      "doc": "small/zeta-远程办公申请.md",
+      "q": "责任人需要做什么？",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r17",
+      "at_ms": 11200,
+      "doc": "small/alpha-客户对接规范.md",
+      "q": "总结一下最关键的三点。",
+      "user": "U01",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r18",
+      "at_ms": 11900,
+      "doc": "small/beta-代码评审流程.md",
+      "q": "这份资料适用于哪些场景？",
+      "user": "U02",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r19",
+      "at_ms": 12600,
+      "doc": "small/delta-数据备份策略.md",
+      "q": "这份资料的核心要求是什么？",
+      "user": "U03",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r20",
+      "at_ms": 13300,
+      "doc": "small/epsilon-会议纪要模板.md",
+      "q": "有哪些关键的时间期限？",
+      "user": "U04",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r21",
+      "at_ms": 14000,
+      "doc": "small/eta-客户资料分级.md",
+      "q": "责任人需要做什么？",
+      "user": "U05",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r22",
+      "at_ms": 14700,
+      "doc": "small/gamma-设备借用登记.md",
+      "q": "金额或数量的上限是多少？",
+      "user": "U06",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r23",
+      "at_ms": 15400,
+      "doc": "small/theta-交付验收清单.md",
+      "q": "遇到例外情况怎么处理？",
+      "user": "U07",
+      "max_tokens": 96
+    },
+    {
+      "id": "S2-小文档轮转-r24",
+      "at_ms": 16100,
+      "doc": "small/zeta-远程办公申请.md",
+      "q": "如果违规会有什么后果？",
+      "user": "U01",
+      "max_tokens": 96
+    }
+  ]
+}
