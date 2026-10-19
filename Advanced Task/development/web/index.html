@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KV 三级缓存监控</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2128; --line:#30363d;
+    --fg:#e6edf3; --dim:#8b949e; --accent:#58a6ff;
+    --l1:#3fb950; --l2:#d29922; --l3:#a371f7; --bad:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:14px/1.5 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  header{
+    display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
+    padding:14px 20px; border-bottom:1px solid var(--line); background:var(--panel);
+  }
+  header h1{font-size:16px; margin:0; font-weight:600}
+  header .meta{color:var(--dim); font-size:12px}
+  header .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--bad); margin-right:6px; vertical-align:middle}
+  header .dot.on{background:var(--l1)}
+  main{padding:16px 20px 40px; max-width:1280px; margin:0 auto}
+
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:12px; margin-bottom:18px}
+  .kpi{background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:12px 14px}
+  .kpi .lab{color:var(--dim); font-size:12px; margin-bottom:6px}
+  .kpi .val{font-size:22px; font-weight:600; font-family:ui-monospace,monospace}
+  .kpi .sub{color:var(--dim); font-size:11px; margin-top:4px}
+
+  .grid{display:grid; grid-template-columns:1.15fr 1fr; gap:14px}
+  @media(max-width:900px){ .grid{grid-template-columns:1fr} }
+
+  .card{background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; padding:14px 16px; margin-bottom:14px}
+  .card h2{font-size:13px; margin:0 0 12px; color:var(--dim);
+    font-weight:600; letter-spacing:.04em; text-transform:uppercase}
+
+  /* L1 slot 方块 */
+  .slots{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+  .slot{background:var(--panel2); border:1px solid var(--line); border-radius:6px;
+    padding:10px; text-align:center; min-height:74px;
+    display:flex; flex-direction:column; justify-content:center; gap:4px}
+  .slot.empty{border-style:dashed; opacity:.55}
+  .slot .n{font-size:11px; color:var(--dim)}
+  .slot .k{font-family:ui-monospace,monospace; font-size:12px;
+    color:var(--l1); word-break:break-all}
+  .slot.empty .k{color:var(--dim)}
+
+  /* 容量条 */
+  .barwrap{margin-bottom:14px}
+  .barhead{display:flex; justify-content:space-between; font-size:12px;
+    margin-bottom:5px}
+  .barhead .r{color:var(--dim); font-family:ui-monospace,monospace}
+  .bar{height:12px; background:var(--panel2); border-radius:6px; overflow:hidden}
+  .bar > i{display:block; height:100%; width:0; transition:width .35s ease}
+  .bar.l2 > i{background:linear-gradient(90deg,#9e6a03,var(--l2))}
+  .bar.l3 > i{background:linear-gradient(90deg,#6e40c9,var(--l3))}
+
+  canvas{width:100%; height:170px; display:block}
+
+  /* 模式分布 */
+  .modes{display:flex; flex-direction:column; gap:7px}
+  .mode{display:grid; grid-template-columns:88px 1fr 46px; gap:9px;
+    align-items:center; font-size:12px}
+  .mode .track{height:9px; background:var(--panel2); border-radius:5px; overflow:hidden}
+  .mode .track > i{display:block; height:100%; width:0; transition:width .35s}
+  .mode .num{text-align:right; font-family:ui-monospace,monospace; color:var(--dim)}
+
+  /* 事件流 */
+  .events{max-height:330px; overflow-y:auto; font-size:12px;
+    font-family:ui-monospace,monospace}
+  .ev{display:grid; grid-template-columns:62px 118px 1fr; gap:8px;
+    padding:4px 0; border-bottom:1px solid #21262d}
+  .ev:last-child{border-bottom:none}
+  .ev .t{color:#6e7681}
+  .ev .e{font-weight:600}
+  .ev .d{color:var(--dim); overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap}
+  .e-miss{color:#f0883e} .e-hit{color:var(--l1)} .e-save{color:var(--accent)}
+  .e-restore{color:var(--l2)} .e-migration{color:var(--l3)}
+  .e-spill_done{color:var(--l3)} .e-spill_batch{color:var(--l3)}
+  .e-promote{color:#db61a2} .e-erase{color:var(--dim)}
+  .e-prefix_probe{color:#39c5cf} .e-evict{color:var(--bad)}
+  .e-skip_cache,.e-restore_failed,.e-save_failed{color:var(--bad)}
+  .e-proxy_start{color:var(--accent)}
+
+  .foot{color:var(--dim); font-size:11px; margin-top:8px}
+  .err{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>KV 三级缓存监控</h1>
+  <span class="meta"><span class="dot" id="dot"></span><span id="conn">连接中…</span></span>
+  <span class="meta mono" id="up"></span>
+  <span class="meta mono" id="fingerprint"></span>
+  <span class="meta mono" id="runid"></span>
+</header>
+
+<main>
+  <div class="kpis">
+    <div class="kpi"><div class="lab">请求总数</div>
+      <div class="val" id="k-req">0</div>
+      <div class="sub" id="k-req-sub">—</div></div>
+    <div class="kpi"><div class="lab">缓存命中率</div>
+      <div class="val" id="k-hit">0%</div>
+      <div class="sub" id="k-hit-sub">—</div></div>
+    <div class="kpi"><div class="lab">复用 token 占比</div>
+      <div class="val" id="k-reuse">0%</div>
+      <div class="sub" id="k-reuse-sub">—</div></div>
+    <div class="kpi"><div class="lab">保存 / 恢复 / 搬家</div>
+      <div class="val mono" id="k-ops">0 / 0 / 0</div>
+      <div class="sub" id="k-ops-sub">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>L1 · 显存（4 个 slot）</h2>
+        <div class="slots" id="slots"></div>
+        <div class="foot" id="l1-foot">—</div>
+      </div>
+
+      <div class="card">
+        <h2>L2 · 内存（tmpfs） / L3 · 磁盘</h2>
+        <div class="barwrap">
+          <div class="barhead"><span>L2 内存</span><span class="r" id="l2-r">—</span></div>
+          <div class="bar l2"><i id="l2-bar"></i></div>
+        </div>
+        <div class="barwrap" style="margin-bottom:4px">
+          <div class="barhead"><span>L3 磁盘</span><span class="r" id="l3-r">—</span></div>
+          <div class="bar l3"><i id="l3-bar"></i></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>L2 / L3 用量时序</h2>
+        <canvas id="chart" width="900" height="340"></canvas>
+        <div class="foot">
+          <span style="color:var(--l2)">■</span> L2 内存（左轴 MiB，满量程 = 配额）　
+          <span style="color:var(--l3)">■</span> L3 磁盘（右轴 MiB，满量程 = 配额 ÷ 4 与实测峰值取大）
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>命中模式分布</h2>
+        <div class="modes" id="modes"></div>
+        <div class="foot" id="mode-foot">—</div>
+      </div>
+
+      <div class="card">
+        <h2>索引条目</h2>
+        <div class="modes" id="entries"></div>
+        <div class="foot" id="entry-foot">—</div>
+      </div>
+
+      <div class="card">
+        <h2>事件流</h2>
+        <div class="events" id="events"></div>
+        <div class="foot" id="ev-foot">—</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const MODE_ORDER = ["L1","L2","L3","prefix","miss","baseline","passthrough"];
+const MODE_COLOR = {L1:"#3fb950", L2:"#d29922", L3:"#a371f7",
+                    prefix:"#39c5cf", miss:"#f0883e",
+                    baseline:"#8b949e", passthrough:"#6e7681"};
+
+let hist = [];          // {t, l2, l3, slots}
+let lastOK = 0;
+let maxL3Seen = 1;      // 动态上限，避免一开始曲线贴地
+
+function fmtMiB(v){ return (v/1048576).toFixed(0); }
+function pct(v){ return (v*100).toFixed(1) + "%"; }
+
+function setConn(ok, txt){
+  $("#dot").className = "dot" + (ok ? " on" : "");
+  $("#conn").textContent = txt;
+  $("#conn").className = ok ? "" : "err";
+}
+
+async function tick(){
+  try{
+    const r = await fetch("/admin/status", {cache:"no-store"});
+    const d = await r.json();
+    render(d);
+    setConn(true, "在线 · " + new Date().toLocaleTimeString("zh-CN"));
+    lastOK = Date.now();
+  }catch(e){
+    setConn(false, "断开（" + (Date.now()-lastOK)/1000|0 + "s 前在线）");
+  }
+}
+
+function render(d){
+  const s = d.stat || {}, t = d.tiers || {};
+  $("#up").textContent = "上游 " + (d.upstream || "?");
+  $("#fingerprint").textContent = d.config_fp || "";
+  $("#runid").textContent = "run " + (d.run_id || "");
+
+  // KPI
+  $("#k-req").textContent = s.requests || 0;
+  $("#k-req-sub").textContent =
+    `L1 ${s.hit_l1||0} · L2 ${s.hit_l2||0} · L3 ${s.hit_l3||0} · 前缀 ${s.hit_prefix||0} · 未命中 ${s.miss||0}`;
+
+  const hit = d.hit_rate || 0;
+  $("#k-hit").textContent = pct(hit);
+  $("#k-hit").style.color = hit > 0.5 ? "var(--l1)" : (hit > 0.2 ? "var(--l2)" : "var(--bad)");
+  $("#k-hit-sub").textContent = `命中 ${(s.hit_l1||0)+(s.hit_l2||0)+(s.hit_l3||0)+(s.hit_prefix||0)} / ${s.requests||0}`;
+
+  const rr = d.reuse_token_ratio || 0;
+  $("#k-reuse").textContent = pct(rr);
+  $("#k-reuse").style.color = rr > 0.5 ? "var(--l1)" : (rr > 0.2 ? "var(--l2)" : "var(--dim)");
+  $("#k-reuse-sub").textContent =
+    `${(s.reused_tokens||0).toLocaleString()} / ${(s.total_prompt_tokens||0).toLocaleString()} token`;
+
+  $("#k-ops").textContent = `${s.saves||0} / ${s.restores||0} / ${s.spills||0}`;
+  $("#k-ops-sub").textContent =
+    `淘汰 ${s.evicts||0} · 跳过缓存 ${s.skipped_cache||0} · 错误 ${s.errors||0}`;
+
+  // L1 slots
+  const slots = d.slots || {};
+  const keys = Object.keys(slots).sort((a,b)=>+a-+b);
+  const used = keys.filter(k=>slots[k]).length;
+  $("#slots").innerHTML = keys.map(k=>{
+    const v = slots[k];
+    return v
+      ? `<div class="slot"><div class="n">slot ${k}</div><div class="k">${v.slice(0,12)}…</div></div>`
+      : `<div class="slot empty"><div class="n">slot ${k}</div><div class="k">空闲</div></div>`;
+  }).join("");
+  $("#l1-foot").textContent = `${used} / ${keys.length} 个槽在用 · 每槽固定 8192 token`;
+
+  // L2/L3 bars
+  const l2u = t.l2_used||0, l2q = t.l2_quota||1;
+  const l3u = t.l3_used||0, l3q = t.l3_quota||1;
+  $("#l2-r").textContent = `${fmtMiB(l2u)} / ${fmtMiB(l2q)} MiB`;
+  $("#l2-bar").style.width = Math.min(100, l2u/l2q*100) + "%";
+  $("#l3-r").textContent = `${fmtMiB(l3u)} / ${fmtMiB(l3q)} MiB`;
+  $("#l3-bar").style.width = Math.min(100, l3u/l3q*100) + "%";
+
+  // 时序
+  hist.push({t:Date.now(), l2:l2u, l3:l3u, slots:used});
+  if (hist.length > 240) hist.shift();
+  maxL3Seen = Math.max(maxL3Seen, l3u);
+  drawChart(l2q, Math.max(l3q/4, maxL3Seen));
+
+  // 模式分布
+  const modes = {L1:s.hit_l1||0, L2:s.hit_l2||0, L3:s.hit_l3||0,
+                 prefix:s.hit_prefix||0, miss:s.miss||0};
+  const maxM = Math.max(1, ...Object.values(modes));
+  $("#modes").innerHTML = MODE_ORDER.filter(m=>modes[m]!==undefined)
+    .map(m=>{
+      const v = modes[m]||0;
+      return `<div class="mode">
+        <span style="color:${MODE_COLOR[m]||'#8b949e'}">${m}</span>
+        <span class="track"><i style="width:${v/maxM*100}%;background:${MODE_COLOR[m]||'#8b949e'}"></i></span>
+        <span class="num">${v}</span></div>`;
+    }).join("");
+  const totM = Object.values(modes).reduce((a,b)=>a+b,0) || 1;
+  $("#mode-foot").textContent =
+    `L1 同槽 ${(modes.L1/totM*100).toFixed(0)}% · L2 内存 ${(modes.L2/totM*100).toFixed(0)}% · ` +
+    `L3 磁盘 ${(modes.L3/totM*100).toFixed(0)}% · 前缀复用 ${(modes.prefix/totM*100).toFixed(0)}%`;
+
+  // 索引条目
+  const en = d.entries || {};
+  const maxE = Math.max(1, ...Object.values(en));
+  const ECOLOR = {L1:"#3fb950", file_only:"#d29922", missing:"#f85149"};
+  $("#entries").innerHTML = Object.keys(en).sort().map(k=>`
+    <div class="mode">
+      <span style="color:${ECOLOR[k]||'#8b949e'}">${k==="file_only"?"仅在文件":k}</span>
+      <span class="track"><i style="width:${en[k]/maxE*100}%;background:${ECOLOR[k]||'#8b949e'}"></i></span>
+      <span class="num">${en[k]}</span></div>`).join("") || '<span class="num">（空）</span>';
+  const totE = Object.values(en).reduce((a,b)=>a+b,0);
+  $("#entry-foot").textContent = `共 ${totE} 个缓存条目`;
+}
+
+function drawChart(l2max, l3max){
+  const c = $("#chart"), ctx = c.getContext("2d");
+  // 用设备像素比修正清晰度
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = c.clientWidth || 900, cssH = 170;
+  if (c.width !== Math.round(cssW*dpr) || c.height !== Math.round(cssH*dpr)) {
+    c.width = Math.round(cssW*dpr); c.height = Math.round(cssH*dpr);
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const W = cssW, H = cssH, pad = {l:52, r:46, t:10, b:20};
+  const w = W - pad.l - pad.r, h = H - pad.t - pad.b;
+  ctx.clearRect(0,0,W,H);
+
+  const l2m = l2max/1048576, l3m = l3max/1048576;
+
+  // 网格 + 左轴（MiB）
+  ctx.strokeStyle = "#21262d"; ctx.lineWidth = 1;
+  ctx.font = "10px ui-monospace,monospace";
+  ctx.textBaseline = "middle";
+  for (let i=0;i<=4;i++){
+    const y = pad.t + h*i/4;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
+    ctx.fillStyle = "#6e7681"; ctx.textAlign = "right";
+    ctx.fillText((l2m*(1-i/4)).toFixed(0), pad.l-6, y);
+    ctx.fillStyle = "rgba(163,113,247,.75)"; ctx.textAlign = "left";
+    ctx.fillText((l3m*(1-i/4)).toFixed(0), pad.l+w+6, y);
+  }
+  ctx.textAlign = "right"; ctx.fillStyle = "#6e7681";
+  ctx.fillText("L2 MiB", pad.l-6, pad.t-2);
+  ctx.textAlign = "left"; ctx.fillStyle = "rgba(163,113,247,.75)";
+  ctx.fillText("L3 MiB", pad.l+w+6, pad.t-2);
+
+  if (hist.length < 2) {
+    ctx.fillStyle = "#6e7681"; ctx.textAlign = "center";
+    ctx.fillText("等待数据…", pad.l + w/2, pad.t + h/2);
+    return;
+  }
+
+  const n = hist.length;
+  const X = i => pad.l + w * (i/(n-1));
+  const Y2 = v => pad.t + h * (1 - Math.min(1, v/l2max));
+  const Y3 = v => pad.t + h * (1 - Math.min(1, v/l3max));
+
+  function line(key, yf, color, fill){
+    ctx.beginPath();
+    hist.forEach((p,i)=>{
+      const x = X(i), y = yf(p[key]);
+      i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    });
+    if (fill){
+      ctx.save();
+      ctx.lineTo(X(n-1), pad.t+h); ctx.lineTo(X(0), pad.t+h); ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.restore();
+      ctx.beginPath();
+      hist.forEach((p,i)=>{
+        const x = X(i), y = yf(p[key]);
+        i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+      });
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.stroke();
+  }
+  line("l3", Y3, "#a371f7", "rgba(163,113,247,.14)");
+  line("l2", Y2, "#d29922", "rgba(210,153,34,.16)");
+
+  // 末端圆点
+  const last = hist[n-1];
+  [[Y2(last.l2), "#d29922"], [Y3(last.l3), "#a371f7"]].forEach(([y,col])=>{
+    ctx.beginPath(); ctx.arc(X(n-1), y, 2.6, 0, 7); ctx.fillStyle = col; ctx.fill();
+  });
+
+  // 时间轴
+  ctx.fillStyle = "#6e7681"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.fillText(`-${((Date.now()-hist[0].t)/1000).toFixed(0)}s`, pad.l, pad.t+h+4);
+  ctx.textAlign = "right";
+  ctx.fillText("现在", pad.l+w, pad.t+h+4);
+}
+
+async function tickEvents(){
+  try{
+    const r = await fetch("/admin/events?limit=40", {cache:"no-store"});
+    const txt = await r.text();
+    const rows = txt.trim() ? txt.trim().split("\n").map(l=>{
+      try{ return JSON.parse(l); }catch(e){ return null; }
+    }).filter(Boolean) : [];
+    rows.reverse();
+    $("#events").innerHTML = rows.map(e=>{
+      const {t, ts, event, ...rest} = e;
+      const d = Object.entries(rest).map(([k,v])=>{
+        if (k==="ts") return null;
+        const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+        return `${k}=${s.length>40?s.slice(0,40)+"…":s}`;
+      }).filter(Boolean).slice(0,6).join("  ");
+      const tt = (t||"").slice(11,19);
+      return `<div class="ev"><span class="t">${tt}</span>
+        <span class="e e-${event}">${event}</span>
+        <span class="d" title="${d.replace(/"/g,"&quot;")}">${d}</span></div>`;
+    }).join("") || '<span class="num">（暂无事件）</span>';
+    $("#ev-foot").textContent = `最近 ${rows.length} 条事件`;
+  }catch(e){ /* 静默 */ }
+}
+
+// 启动
+$("#modes").innerHTML = MODE_ORDER.map(m=>`
+  <div class="mode"><span>${m}</span>
+  <span class="track"><i></i></span><span class="num">0</span></div>`).join("");
+
+tick(); tickEvents();
+setInterval(tick, 600);
+setInterval(tickEvents, 1500);
+</script>
+</body>
+</html>
