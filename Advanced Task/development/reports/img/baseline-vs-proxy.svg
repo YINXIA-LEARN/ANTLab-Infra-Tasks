@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="460" viewBox="0 0 860 460" font-family="system-ui, sans-serif">
+<rect width="860" height="460" fill="#ffffff"/>
+<text x="78" y="26" font-size="15" font-weight="600" fill="#111">每轮 prefill 耗时（越低越好）· 基线 vs 代理</text>
+<text x="78" y="42" font-size="11" fill="#666">柱高 = 各轮平均值，须线 = 各轮最小～最大；数据来自 results/*/summary.json</text>
+<line x1="78" y1="364.0" x2="836" y2="364.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="68" y="368.0" font-size="11" fill="#666" text-anchor="end">0</text>
+<line x1="78" y1="300.8" x2="836" y2="300.8" stroke="#e5e7eb" stroke-width="1"/>
+<text x="68" y="304.8" font-size="11" fill="#666" text-anchor="end">300</text>
+<line x1="78" y1="237.6" x2="836" y2="237.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="68" y="241.6" font-size="11" fill="#666" text-anchor="end">600</text>
+<line x1="78" y1="174.4" x2="836" y2="174.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="68" y="178.4" font-size="11" fill="#666" text-anchor="end">900</text>
+<line x1="78" y1="111.2" x2="836" y2="111.2" stroke="#e5e7eb" stroke-width="1"/>
+<text x="68" y="115.2" font-size="11" fill="#666" text-anchor="end">1200</text>
+<line x1="78" y1="48.0" x2="836" y2="48.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="68" y="52.0" font-size="11" fill="#666" text-anchor="end">1500</text>
+<text x="22" y="206" font-size="11" fill="#666" transform="rotate(-90 22 206)" text-anchor="middle">prefill (ms)</text>
+<line x1="78" y1="364" x2="836" y2="364" stroke="#9ca3af" stroke-width="1.5"/>
+<rect x="142.3" y="309.7" width="56.0" height="54.3" fill="#9ca3af" rx="2"/>
+<line x1="138.3" y1="336.8" x2="202.3" y2="336.8" stroke="#374151" stroke-width="1"/>
+<line x1="138.3" y1="255.8" x2="202.3" y2="255.8" stroke="#374151" stroke-width="1"/>
+<text x="170.3" y="304.7" font-size="10" fill="#111" text-anchor="middle">258</text>
+<rect x="210.3" y="313.0" width="56.0" height="51.0" fill="#2563eb" rx="2"/>
+<line x1="206.3" y1="337.6" x2="270.3" y2="337.6" stroke="#374151" stroke-width="1"/>
+<line x1="206.3" y1="265.7" x2="270.3" y2="265.7" stroke="#374151" stroke-width="1"/>
+<text x="238.3" y="308.0" font-size="10" fill="#111" text-anchor="middle">242</text>
+<text x="204" y="386" font-size="12" fill="#111" text-anchor="middle">S1</text>
+<text x="204" y="402" font-size="11" fill="#666" text-anchor="middle">单文档重复</text>
+<text x="204" y="422" font-size="12" font-weight="600" fill="#16a34a" text-anchor="middle">−6%</text>
+<rect x="395.0" y="83.6" width="56.0" height="280.4" fill="#9ca3af" rx="2"/>
+<line x1="391.0" y1="92.4" x2="455.0" y2="92.4" stroke="#374151" stroke-width="1"/>
+<line x1="391.0" y1="76.3" x2="455.0" y2="76.3" stroke="#374151" stroke-width="1"/>
+<text x="423.0" y="78.6" font-size="10" fill="#111" text-anchor="middle">1331</text>
+<rect x="463.0" y="290.6" width="56.0" height="73.4" fill="#2563eb" rx="2"/>
+<line x1="459.0" y1="318.8" x2="523.0" y2="318.8" stroke="#374151" stroke-width="1"/>
+<line x1="459.0" y1="235.1" x2="523.0" y2="235.1" stroke="#374151" stroke-width="1"/>
+<text x="491.0" y="285.6" font-size="10" fill="#111" text-anchor="middle">349</text>
+<text x="457" y="386" font-size="12" fill="#111" text-anchor="middle">S2</text>
+<text x="457" y="402" font-size="11" fill="#666" text-anchor="middle">小文档轮转</text>
+<text x="457" y="422" font-size="12" font-weight="600" fill="#16a34a" text-anchor="middle">−74%</text>
+<rect x="647.7" y="323.0" width="56.0" height="41.0" fill="#9ca3af" rx="2"/>
+<line x1="643.7" y1="324.1" x2="707.7" y2="324.1" stroke="#374151" stroke-width="1"/>
+<line x1="643.7" y1="322.0" x2="707.7" y2="322.0" stroke="#374151" stroke-width="1"/>
+<text x="675.7" y="318.0" font-size="10" fill="#111" text-anchor="middle">195</text>
+<rect x="715.7" y="175.6" width="56.0" height="188.4" fill="#2563eb" rx="2"/>
+<line x1="711.7" y1="175.6" x2="775.7" y2="175.6" stroke="#374151" stroke-width="1"/>
+<line x1="711.7" y1="175.6" x2="775.7" y2="175.6" stroke="#374151" stroke-width="1"/>
+<text x="743.7" y="170.6" font-size="10" fill="#111" text-anchor="middle">894</text>
+<text x="710" y="386" font-size="12" fill="#111" text-anchor="middle">S3</text>
+<text x="710" y="402" font-size="11" fill="#666" text-anchor="middle">大文档竞争</text>
+<text x="710" y="422" font-size="12" font-weight="600" fill="#dc2626" text-anchor="middle">+360%（代理仅 1 轮）</text>
+<rect x="86" y="436" width="11" height="11" fill="#9ca3af" rx="2"/>
+<text x="102" y="445" font-size="11" fill="#374151">基线（直连，原生行为）</text>
+<rect x="276" y="436" width="11" height="11" fill="#2563eb" rx="2"/>
+<text x="292" y="445" font-size="11" fill="#374151">代理（三层缓存）</text>
+</svg>
