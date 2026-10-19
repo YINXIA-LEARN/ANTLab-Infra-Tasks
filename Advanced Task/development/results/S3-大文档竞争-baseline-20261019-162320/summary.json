@@ -1,0 +1,96 @@
+{
+  "run_id": "S3-大文档竞争-baseline-20261019-162320",
+  "label": "S3-大文档竞争",
+  "target": "baseline",
+  "workload": "S3-大文档竞争",
+  "rounds": 3,
+  "n_total": 45,
+  "n_success": 45,
+  "n_error": 0,
+  "modes": {
+    "baseline": 45
+  },
+  "hit_rate": 0.0,
+  "reuse_tokens": 254145,
+  "total_prompt_tokens": 254802,
+  "reuse_ratio": 0.9974,
+  "prefill_ms": {
+    "sum": 583.8,
+    "p50": 13.0,
+    "p95": 14.0,
+    "max": 15.2
+  },
+  "wall_ms": {
+    "p50": 396.4,
+    "p95": 592.3
+  },
+  "arrival_dev_ms": {
+    "max": 2082.5,
+    "mean": 1429.7
+  },
+  "per_round": [
+    {
+      "round": 1,
+      "n": 15,
+      "ok": 15,
+      "modes": {
+        "baseline": 15
+      },
+      "reuse_tokens": 84715,
+      "total_prompt_tokens": 84934,
+      "prefill_ms_sum": 195.1
+    },
+    {
+      "round": 2,
+      "n": 15,
+      "ok": 15,
+      "modes": {
+        "baseline": 15
+      },
+      "reuse_tokens": 84715,
+      "total_prompt_tokens": 84934,
+      "prefill_ms_sum": 199.5
+    },
+    {
+      "round": 3,
+      "n": 15,
+      "ok": 15,
+      "modes": {
+        "baseline": 15
+      },
+      "reuse_tokens": 84715,
+      "total_prompt_tokens": 84934,
+      "prefill_ms_sum": 189.2
+    }
+  ],
+  "per_doc": {
+    "large/proj-a-星桥门户项目全记录.md": {
+      "n": 15,
+      "prefill_ms": 198.0,
+      "reuse": 84705,
+      "total": 84924,
+      "modes": {
+        "baseline": 15
+      }
+    },
+    "large/proj-b-知识库迁移项目全记录.md": {
+      "n": 15,
+      "prefill_ms": 192.99999999999997,
+      "reuse": 84720,
+      "total": 84939,
+      "modes": {
+        "baseline": 15
+      }
+    },
+    "large/proj-c-工单系统重构项目全记录.md": {
+      "n": 15,
+      "prefill_ms": 192.8,
+      "reuse": 84720,
+      "total": 84939,
+      "modes": {
+        "baseline": 15
+      }
+    }
+  },
+  "finished_at": "2026-10-19T16:25:18+0800"
+}

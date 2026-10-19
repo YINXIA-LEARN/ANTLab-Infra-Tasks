@@ -1,0 +1,97 @@
+{
+  "run_id": "S3-大文档竞争-proxy-20261019-155701",
+  "label": "S3-大文档竞争",
+  "target": "proxy",
+  "base_url": "http://127.0.0.1:8081",
+  "workload": "configs/workloads/S3.json",
+  "workload_name": "S3-大文档竞争",
+  "rounds": 1,
+  "n_requests": 15,
+  "gap_s": 2.0,
+  "restart_first": false,
+  "restart_between_rounds": false,
+  "started_at": "2026-10-19T15:57:01+0800",
+  "corpus_manifest": {
+    "generated_at": "2026-10-18",
+    "docs": [
+      {
+        "file": "small/alpha-客户对接规范.md",
+        "bytes": 3569,
+        "sha256": "5628cc5c7fc098f809751aee54b99c1c7a581944e959d4841032668945df47ee",
+        "tokens": 970
+      },
+      {
+        "file": "small/beta-代码评审流程.md",
+        "bytes": 3558,
+        "sha256": "e1420fe0d5dab1189b6c6712d25845f2aaf95d6715222789caf79e854b0f3e24",
+        "tokens": 979
+      },
+      {
+        "file": "small/gamma-设备借用登记.md",
+        "bytes": 3569,
+        "sha256": "1715994b1e0daec844b1457b2b705fc19b695d83562f1b5cb370f8d3e4fcab0e",
+        "tokens": 979
+      },
+      {
+        "file": "small/delta-数据备份策略.md",
+        "bytes": 3569,
+        "sha256": "de11ed1bde46db8d76b0cdf3696b9392da9de546b5b6fc3c22b22bbc47683a94",
+        "tokens": 978
+      },
+      {
+        "file": "small/epsilon-会议纪要模板.md",
+        "bytes": 3591,
+        "sha256": "44845122b6065c9978c24108bced73efcaedbff1a2e0696dbda0cc98c8509f45",
+        "tokens": 990
+      },
+      {
+        "file": "small/zeta-远程办公申请.md",
+        "bytes": 3558,
+        "sha256": "9bab8fdc7ac3df0418db87d37e28dc2cccb4145a3abcbe3a2e93e83054285a20",
+        "tokens": 981
+      },
+      {
+        "file": "small/eta-客户资料分级.md",
+        "bytes": 3896,
+        "sha256": "76c15003240530bf57719c936bac9b701c2cefd0efbd0d29aeb1cf1329249e9c",
+        "tokens": 1068
+      },
+      {
+        "file": "small/theta-交付验收清单.md",
+        "bytes": 3569,
+        "sha256": "6ca3394993153e7ba823a3db2fe8bbd3fbba5f3959f9e2fded9c1487c74a3d5f",
+        "tokens": 979
+      },
+      {
+        "file": "large/proj-a-星桥门户项目全记录.md",
+        "bytes": 16642,
+        "sha256": "fc0e01543ec3948d44d10dfcee905a373e63c8a0a066f482e1e3c7ad383ad51b",
+        "tokens": 5621
+      },
+      {
+        "file": "large/proj-b-知识库迁移项目全记录.md",
+        "bytes": 16645,
+        "sha256": "d334e7867455e2cc7676027ea250e9b5dca716df74fcdfe42d4a66ae2b5eabac",
+        "tokens": 5622
+      },
+      {
+        "file": "large/proj-c-工单系统重构项目全记录.md",
+        "bytes": 16648,
+        "sha256": "2d3d0a717f7b78624ddee6bbdcaae6b676b4048abceb4b07eb17c0c7ba1f5d0a",
+        "tokens": 5622
+      },
+      {
+        "file": "versions/知识库-v1.md",
+        "bytes": 10838,
+        "sha256": "2efb9c8ec04fe87840161dc0b7eb13e453b52c321b2b798a1c9b642688d93b4c",
+        "tokens": 3288
+      },
+      {
+        "file": "versions/知识库-v2.md",
+        "bytes": 10839,
+        "sha256": "f52db59e0a7e952a87860ddd3f6957ea437b895541596fd988f1105772634696",
+        "tokens": 3289
+      }
+    ]
+  }
+}

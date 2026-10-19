@@ -1,0 +1,78 @@
+{
+  "run_id": "S1-单文档重复-baseline-20261019-161645",
+  "label": "S1-单文档重复",
+  "target": "baseline",
+  "workload": "S1-单文档重复",
+  "rounds": 3,
+  "n_total": 30,
+  "n_success": 30,
+  "n_error": 0,
+  "modes": {
+    "baseline": 30
+  },
+  "hit_rate": 0.0,
+  "reuse_tokens": 163791,
+  "total_prompt_tokens": 169848,
+  "reuse_ratio": 0.9643,
+  "prefill_ms": {
+    "sum": 773.9,
+    "p50": 13.1,
+    "p95": 14.3,
+    "max": 397.7
+  },
+  "wall_ms": {
+    "p50": 538.6,
+    "p95": 619.0
+  },
+  "arrival_dev_ms": {
+    "max": 2061.0,
+    "mean": 412.2
+  },
+  "per_round": [
+    {
+      "round": 1,
+      "n": 10,
+      "ok": 10,
+      "modes": {
+        "baseline": 10
+      },
+      "reuse_tokens": 50847,
+      "total_prompt_tokens": 56616,
+      "prefill_ms_sum": 513.4
+    },
+    {
+      "round": 2,
+      "n": 10,
+      "ok": 10,
+      "modes": {
+        "baseline": 10
+      },
+      "reuse_tokens": 56472,
+      "total_prompt_tokens": 56616,
+      "prefill_ms_sum": 131.2
+    },
+    {
+      "round": 3,
+      "n": 10,
+      "ok": 10,
+      "modes": {
+        "baseline": 10
+      },
+      "reuse_tokens": 56472,
+      "total_prompt_tokens": 56616,
+      "prefill_ms_sum": 129.3
+    }
+  ],
+  "per_doc": {
+    "large/proj-a-星桥门户项目全记录.md": {
+      "n": 30,
+      "prefill_ms": 773.9000000000001,
+      "reuse": 163791,
+      "total": 169848,
+      "modes": {
+        "baseline": 30
+      }
+    }
+  },
+  "finished_at": "2026-10-19T16:17:26+0800"
+}

@@ -1,0 +1,69 @@
+{
+  "run_id": "S5-版本更新-proxy-20261019-155548",
+  "label": "S5-版本更新",
+  "target": "proxy",
+  "workload": "S5-版本更新",
+  "rounds": 1,
+  "n_total": 6,
+  "n_success": 6,
+  "n_error": 0,
+  "modes": {
+    "L2": 2,
+    "L1": 4
+  },
+  "hit_rate": 1.0,
+  "reuse_tokens": 19943,
+  "total_prompt_tokens": 19977,
+  "reuse_ratio": 0.9983,
+  "prefill_ms": {
+    "sum": 45.5,
+    "p50": 6.4,
+    "p95": 10.7,
+    "max": 10.7
+  },
+  "wall_ms": {
+    "p50": 78.0,
+    "p95": 592.7
+  },
+  "arrival_dev_ms": {
+    "max": 0.1,
+    "mean": 0.1
+  },
+  "per_round": [
+    {
+      "round": 1,
+      "n": 6,
+      "ok": 6,
+      "modes": {
+        "L2": 2,
+        "L1": 4
+      },
+      "reuse_tokens": 19943,
+      "total_prompt_tokens": 19977,
+      "prefill_ms_sum": 45.5
+    }
+  ],
+  "per_doc": {
+    "versions/知识库-v1.md": {
+      "n": 3,
+      "prefill_ms": 23.1,
+      "reuse": 9970,
+      "total": 9987,
+      "modes": {
+        "L2": 1,
+        "L1": 2
+      }
+    },
+    "versions/知识库-v2.md": {
+      "n": 3,
+      "prefill_ms": 22.4,
+      "reuse": 9973,
+      "total": 9990,
+      "modes": {
+        "L2": 1,
+        "L1": 2
+      }
+    }
+  },
+  "finished_at": "2026-10-19T15:55:58+0800"
+}

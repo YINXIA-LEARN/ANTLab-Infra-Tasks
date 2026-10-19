@@ -1,0 +1,81 @@
+{
+  "run_id": "S3-大文档竞争-proxy-20261019-155701",
+  "label": "S3-大文档竞争",
+  "target": "proxy",
+  "workload": "S3-大文档竞争",
+  "rounds": 1,
+  "n_total": 15,
+  "n_success": 15,
+  "n_error": 0,
+  "modes": {
+    "L2": 1,
+    "miss": 2,
+    "L1": 12
+  },
+  "hit_rate": 0.8667,
+  "reuse_tokens": 73419,
+  "total_prompt_tokens": 84934,
+  "reuse_ratio": 0.8644,
+  "prefill_ms": {
+    "sum": 894.2,
+    "p50": 14.0,
+    "p95": 362.7,
+    "max": 362.7
+  },
+  "wall_ms": {
+    "p50": 550.4,
+    "p95": 1319.9
+  },
+  "arrival_dev_ms": {
+    "max": 1780.7,
+    "mean": 593.7
+  },
+  "per_round": [
+    {
+      "round": 1,
+      "n": 15,
+      "ok": 15,
+      "modes": {
+        "L2": 1,
+        "miss": 2,
+        "L1": 12
+      },
+      "reuse_tokens": 73419,
+      "total_prompt_tokens": 84934,
+      "prefill_ms_sum": 894.2
+    }
+  ],
+  "per_doc": {
+    "large/proj-a-星桥门户项目全记录.md": {
+      "n": 5,
+      "prefill_ms": 70.10000000000001,
+      "reuse": 28235,
+      "total": 28308,
+      "modes": {
+        "L2": 1,
+        "L1": 4
+      }
+    },
+    "large/proj-b-知识库迁移项目全记录.md": {
+      "n": 5,
+      "prefill_ms": 419.8,
+      "reuse": 22592,
+      "total": 28313,
+      "modes": {
+        "miss": 1,
+        "L1": 4
+      }
+    },
+    "large/proj-c-工单系统重构项目全记录.md": {
+      "n": 5,
+      "prefill_ms": 404.3,
+      "reuse": 22592,
+      "total": 28313,
+      "modes": {
+        "miss": 1,
+        "L1": 4
+      }
+    }
+  },
+  "finished_at": "2026-10-19T15:57:38+0800"
+}

@@ -1,0 +1,159 @@
+{
+  "run_id": "S4-冷热混合-proxy-20261019-155514",
+  "label": "S4-冷热混合",
+  "target": "proxy",
+  "workload": "S4-冷热混合",
+  "rounds": 1,
+  "n_total": 35,
+  "n_success": 35,
+  "n_error": 0,
+  "modes": {
+    "miss": 10,
+    "prefix": 1,
+    "L2": 12,
+    "L1": 12
+  },
+  "hit_rate": 0.7143,
+  "reuse_tokens": 27499,
+  "total_prompt_tokens": 45155,
+  "reuse_ratio": 0.609,
+  "prefill_ms": {
+    "sum": 1237.8,
+    "p50": 12.0,
+    "p95": 187.8,
+    "max": 361.7
+  },
+  "wall_ms": {
+    "p50": 250.7,
+    "p95": 591.2
+  },
+  "arrival_dev_ms": {
+    "max": 1808.2,
+    "mean": 310.1
+  },
+  "per_round": [
+    {
+      "round": 1,
+      "n": 35,
+      "ok": 35,
+      "modes": {
+        "miss": 10,
+        "prefix": 1,
+        "L2": 12,
+        "L1": 12
+      },
+      "reuse_tokens": 27499,
+      "total_prompt_tokens": 45155,
+      "prefill_ms_sum": 1237.8
+    }
+  ],
+  "per_doc": {
+    "small/alpha-客户对接规范.md": {
+      "n": 10,
+      "prefill_ms": 153.20000000000002,
+      "reuse": 8966,
+      "total": 10106,
+      "modes": {
+        "miss": 1,
+        "L2": 3,
+        "L1": 6
+      }
+    },
+    "small/beta-代码评审流程.md": {
+      "n": 10,
+      "prefill_ms": 144.0,
+      "reuse": 9047,
+      "total": 10194,
+      "modes": {
+        "miss": 1,
+        "L2": 3,
+        "L1": 6
+      }
+    },
+    "small/delta-数据备份策略.md": {
+      "n": 3,
+      "prefill_ms": 68.7,
+      "reuse": 2008,
+      "total": 3056,
+      "modes": {
+        "miss": 1,
+        "L2": 2
+      }
+    },
+    "small/epsilon-会议纪要模板.md": {
+      "n": 3,
+      "prefill_ms": 79.5,
+      "reuse": 2032,
+      "total": 3094,
+      "modes": {
+        "miss": 1,
+        "L2": 2
+      }
+    },
+    "small/eta-客户资料分级.md": {
+      "n": 3,
+      "prefill_ms": 76.6,
+      "reuse": 2188,
+      "total": 3326,
+      "modes": {
+        "miss": 1,
+        "L2": 2
+      }
+    },
+    "small/gamma-设备借用登记.md": {
+      "n": 1,
+      "prefill_ms": 50.6,
+      "reuse": 0,
+      "total": 1020,
+      "modes": {
+        "miss": 1
+      }
+    },
+    "small/theta-交付验收清单.md": {
+      "n": 1,
+      "prefill_ms": 50.9,
+      "reuse": 0,
+      "total": 1019,
+      "modes": {
+        "miss": 1
+      }
+    },
+    "small/zeta-远程办公申请.md": {
+      "n": 1,
+      "prefill_ms": 51.4,
+      "reuse": 0,
+      "total": 1022,
+      "modes": {
+        "miss": 1
+      }
+    },
+    "versions/知识库-v1.md": {
+      "n": 1,
+      "prefill_ms": 187.8,
+      "reuse": 0,
+      "total": 3329,
+      "modes": {
+        "miss": 1
+      }
+    },
+    "versions/知识库-v2.md": {
+      "n": 1,
+      "prefill_ms": 13.4,
+      "reuse": 3258,
+      "total": 3329,
+      "modes": {
+        "prefix": 1
+      }
+    },
+    "large/proj-a-星桥门户项目全记录.md": {
+      "n": 1,
+      "prefill_ms": 361.7,
+      "reuse": 0,
+      "total": 5660,
+      "modes": {
+        "miss": 1
+      }
+    }
+  },
+  "finished_at": "2026-10-19T15:55:48+0800"
+}

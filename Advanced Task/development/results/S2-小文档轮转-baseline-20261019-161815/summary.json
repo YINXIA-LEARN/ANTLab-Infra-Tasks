@@ -1,0 +1,141 @@
+{
+  "run_id": "S2-小文档轮转-baseline-20261019-161815",
+  "label": "S2-小文档轮转",
+  "target": "baseline",
+  "workload": "S2-小文档轮转",
+  "rounds": 3,
+  "n_total": 72,
+  "n_success": 72,
+  "n_error": 0,
+  "modes": {
+    "baseline": 72
+  },
+  "hit_rate": 0.0,
+  "reuse_tokens": 1573,
+  "total_prompt_tokens": 74241,
+  "reuse_ratio": 0.0212,
+  "prefill_ms": {
+    "sum": 3993.2,
+    "p50": 54.3,
+    "p95": 66.4,
+    "max": 70.1
+  },
+  "wall_ms": {
+    "p50": 247.6,
+    "p95": 467.3
+  },
+  "arrival_dev_ms": {
+    "max": 2212.0,
+    "mean": 642.3
+  },
+  "per_round": [
+    {
+      "round": 1,
+      "n": 24,
+      "ok": 24,
+      "modes": {
+        "baseline": 24
+      },
+      "reuse_tokens": 481,
+      "total_prompt_tokens": 24747,
+      "prefill_ms_sum": 1365.5
+    },
+    {
+      "round": 2,
+      "n": 24,
+      "ok": 24,
+      "modes": {
+        "baseline": 24
+      },
+      "reuse_tokens": 546,
+      "total_prompt_tokens": 24747,
+      "prefill_ms_sum": 1289.1
+    },
+    {
+      "round": 3,
+      "n": 24,
+      "ok": 24,
+      "modes": {
+        "baseline": 24
+      },
+      "reuse_tokens": 546,
+      "total_prompt_tokens": 24747,
+      "prefill_ms_sum": 1338.6
+    }
+  ],
+  "per_doc": {
+    "small/alpha-客户对接规范.md": {
+      "n": 9,
+      "prefill_ms": 495.70000000000005,
+      "reuse": 200,
+      "total": 9099,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/beta-代码评审流程.md": {
+      "n": 9,
+      "prefill_ms": 488.4,
+      "reuse": 176,
+      "total": 9177,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/delta-数据备份策略.md": {
+      "n": 9,
+      "prefill_ms": 479.2,
+      "reuse": 180,
+      "total": 9165,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/epsilon-会议纪要模板.md": {
+      "n": 9,
+      "prefill_ms": 488.9,
+      "reuse": 198,
+      "total": 9276,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/eta-客户资料分级.md": {
+      "n": 9,
+      "prefill_ms": 581.8000000000001,
+      "reuse": 225,
+      "total": 9975,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/gamma-设备借用登记.md": {
+      "n": 9,
+      "prefill_ms": 493.9,
+      "reuse": 198,
+      "total": 9183,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/theta-交付验收清单.md": {
+      "n": 9,
+      "prefill_ms": 481.7,
+      "reuse": 198,
+      "total": 9174,
+      "modes": {
+        "baseline": 9
+      }
+    },
+    "small/zeta-远程办公申请.md": {
+      "n": 9,
+      "prefill_ms": 483.6,
+      "reuse": 198,
+      "total": 9192,
+      "modes": {
+        "baseline": 9
+      }
+    }
+  },
+  "finished_at": "2026-10-19T16:19:13+0800"
+}
